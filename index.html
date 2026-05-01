@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PI Planning Simulation – SAFe Training</title>
+
+<!-- Firebase SDK (compat for inline-handler compatibility) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: #eef2f7; color: #1a2a3a; min-height: 100vh; }
+
+  .topbar {
+    background: #1f5fa8; color: white; padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 12px;
+  }
+  .topbar .brand { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .topbar .brand small { opacity: 0.8; font-weight: 400; font-size: 12px; }
+  .conn-status {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block; background: #999;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+  }
+  .conn-status.conn-online  { background: #2ecc71; }
+  .conn-status.conn-offline { background: #c0392b; }
+  .conn-status.conn-error   { background: #e67e22; animation: pulse 1.2s infinite; }
+  .conn-status.conn-init    { background: #f1c40f; }
+  .conn-status.conn-local   { background: #95a5a6; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.6); }
+    50%      { box-shadow: 0 0 0 6px rgba(230,126,34,0); }
+  }
+
+  .nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+  .nav-btn {
+    background: transparent; color: white; border: 1px solid rgba(255,255,255,0.4);
+    padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+  }
+  .nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+  .nav-btn.active { background: white; color: #1f5fa8; font-weight: 600; }
+  .nav-btn:disabled { opacity: 0.35; cursor: not-allowed; border-style: dashed; }
+
+  .view { display: none; padding: 24px; }
+  .view.active { display: block; }
+
+  .firebase-banner {
+    background: #fff8e1; border: 1px solid #ffe082;
+    padding: 12px 18px; border-radius: 6px;
+    margin: 0 auto 18px; max-width: 900px;
+    font-size: 13px; color: #5d4037; line-height: 1.6;
+  }
+  .firebase-banner.hidden { display: none; }
+  .firebase-banner strong { color: #b9770e; }
+  .firebase-banner code {
+    background: #fff; padding: 1px 6px; border-radius: 3px;
+    font-family: 'Courier New', monospace; font-size: 12px;
+  }
+
+  .menu-hero { text-align: center; max-width: 800px; margin: 20px auto 24px; }
+  .menu-hero h1 { font-size: 32px; color: #1f5fa8; margin-bottom: 10px; }
+  .menu-hero p { color: #4a5a6a; font-size: 15px; line-height: 1.6; }
+
+  .group-count-selector {
+    background: white; max-width: 600px; margin: 0 auto 28px;
+    padding: 16px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+  }
+  .group-count-selector .selector-label { font-size: 14px; color: #1a2a3a; font-weight: 600; }
+  .count-btn {
+    background: #f4f7fb; border: 2px solid #ccd5dd; color: #1f5fa8;
+    padding: 6px 16px; border-radius: 4px; cursor: pointer;
+    font-weight: 700; font-size: 14px; min-width: 44px;
+  }
+  .count-btn:hover { border-color: #1f5fa8; }
+  .count-btn.active { background: #1f5fa8; color: white; border-color: #1f5fa8; }
+  .count-hint { width: 100%; text-align: center; font-size: 12px; color: #6c7a89; margin-top: 6px; }
+
+  .menu-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px; max-width: 1200px; margin: 0 auto;
+  }
+  .menu-card {
+    background: white; border-radius: 8px; padding: 22px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-top: 4px solid #1f5fa8;
+    cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; position: relative;
+  }
+  .menu-card:hover:not(.disabled) { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+  .menu-card.risk { border-top-color: #c0392b; }
+  .menu-card h3 { color: #1f5fa8; margin-bottom: 8px; font-size: 17px; }
+  .menu-card.risk h3 { color: #c0392b; }
+  .menu-card p { font-size: 13px; color: #5a6a7a; line-height: 1.5; }
+  .menu-card .features {
+    margin-top: 12px; font-size: 12px; color: #2c3e50;
+    background: #f4f7fb; padding: 8px 10px; border-radius: 4px;
+  }
+  .menu-card.disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }
+  .menu-card .disabled-badge {
+    position: absolute; top: 12px; right: 12px;
+    background: #6c7a89; color: white;
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+
+  .reset-area {
+    text-align: center; margin: 50px auto 0;
+    max-width: 700px; padding: 20px 16px;
+    border-top: 1px dashed #ccd5dd;
+  }
+  .reset-area .reset-hint {
+    font-size: 12px; color: #6c7a89; margin-top: 8px;
+  }
+
+  .group-header {
+    background: white; padding: 14px 20px; border-radius: 8px;
+    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .group-header h2 { color: #1f5fa8; font-size: 22px; }
+  .group-header .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .subtabs {
+    background: white; border-radius: 8px 8px 0 0; overflow: hidden;
+    display: flex; border-bottom: 2px solid #1f5fa8;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .subtab {
+    flex: 1; padding: 12px; text-align: center; cursor: pointer;
+    background: #f4f7fb; color: #1f5fa8; font-weight: 600; font-size: 14px;
+    border: none; border-right: 1px solid #ddd;
+  }
+  .subtab:last-child { border-right: none; }
+  .subtab:hover { background: #e6eef8; }
+  .subtab.active { background: #1f5fa8; color: white; }
+  .subview {
+    background: white; border-radius: 0 0 8px 8px;
+    padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    min-height: 500px;
+  }
+
+  .btn { background: #1f5fa8; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .btn:hover { background: #154378; }
+  .btn.secondary { background: #6c7a89; }
+  .btn.danger { background: #c0392b; }
+  .btn.danger:hover { background: #962a1f; }
+  .btn.small { padding: 4px 10px; font-size: 12px; }
+
+  .team-board-wrap { overflow-x: auto; padding-bottom: 8px; }
+  .team-board { display: grid; grid-template-columns: repeat(3, minmax(300px, 1fr)); gap: 12px; min-width: 960px; }
+  .col { background: #fafbfd; border: 1px solid #e0e6ed; border-radius: 6px; display: flex; flex-direction: column; min-height: 600px; }
+  .col-head {
+    background: #1f5fa8; color: white; padding: 10px 14px;
+    border-radius: 6px 6px 0 0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 600; font-size: 14px;
+  }
+  .col-head .dots { letter-spacing: 6px; opacity: 0.6; font-size: 10px; }
+  .col-body { padding: 10px; flex: 1; overflow-y: auto; min-height: 350px; }
+  .col-body.dragging-over { background: #e8f1fb; outline: 2px dashed #1f5fa8; }
+  .col-body.drop-blocked { background: #fdedec; outline: 2px dashed #c0392b; }
+
+  .iter-controls { background: #f4f7fb; padding: 10px 12px; border-bottom: 1px solid #e0e6ed; font-size: 12px; }
+  .iter-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .iter-row label { color: #555; font-weight: 600; }
+  .iter-row input { width: 60px; border: 1px solid #ccc; padding: 4px 6px; border-radius: 3px; font-size: 12px; text-align: center; }
+  .iter-row .load-value {
+    font-weight: 700; padding: 2px 8px; border-radius: 3px;
+    background: #27ae60; color: white; min-width: 36px; text-align: center;
+  }
+  .iter-row .load-value.warn { background: #f39c12; }
+  .iter-row .load-value.over { background: #c0392b; }
+  .capacity-bar { height: 8px; background: #e0e6ed; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .capacity-fill { height: 100%; background: #27ae60; transition: width 0.3s, background 0.3s; }
+  .capacity-fill.warn { background: #f39c12; }
+  .capacity-fill.over { background: #c0392b; }
+  .remaining-text { font-size: 11px; color: #555; margin-top: 4px; text-align: right; }
+  .remaining-text.over { color: #c0392b; font-weight: 600; }
+
+  .feature-block { margin-bottom: 14px; }
+  .feature-title { font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: 3px; margin-bottom: 6px; color: white; }
+  .feature-block.feat-1 .feature-title { background: #2874a6; }
+  .feature-block.feat-2 .feature-title { background: #117a65; }
+
+  .story-card {
+    background: #fffbe6; border: 1px solid #e6d77a;
+    border-radius: 4px; padding: 8px 10px; margin-bottom: 6px;
+    cursor: grab; font-size: 12px; position: relative;
+  }
+  .story-card:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .story-card.enabler { background: #e8f4fd; border-color: #7fb6e0; }
+  .story-card[draggable="true"]:active { cursor: grabbing; }
+  .story-card.dragging { opacity: 0.4; }
+  .story-card.f-1 { border-left: 4px solid #3498db; }
+  .story-card.f-2 { border-left: 4px solid #16a085; }
+
+  .story-title { font-weight: 600; color: #2c3e50; padding-right: 36px; }
+  .story-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; font-size: 10px; color: #666; flex-wrap: wrap; }
+  .story-tag { background: #34495e; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; }
+  .story-tag.enabler { background: #2980b9; }
+  .feat-pill { font-size: 10px; padding: 1px 6px; border-radius: 3px; color: white; font-weight: 600; }
+  .feat-pill.f-1 { background: #2874a6; }
+  .feat-pill.f-2 { background: #117a65; }
+
+  .size-badge {
+    position: absolute; top: 6px; right: 6px;
+    background: #1f5fa8; color: white;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 12px; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); user-select: none;
+  }
+  .size-badge.unsized { background: #c0392b; animation: pulseBadge 2s infinite; }
+  @keyframes pulseBadge {
+    0%, 100% { box-shadow: 0 1px 3px rgba(192,57,43,0.4); }
+    50% { box-shadow: 0 1px 8px rgba(192,57,43,0.8); }
+  }
+  .size-badge:hover { transform: scale(1.1); }
+
+  .story-desc { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; color: #555; font-size: 11px; white-space: pre-line; display: none; }
+  .story-card.expanded .story-desc { display: block; }
+  .empty-hint { color: #aaa; font-size: 12px; text-align: center; padding: 24px 10px; font-style: italic; }
+
+  .size-picker {
+    position: fixed; z-index: 9999;
+    background: white; border: 1px solid #ddd; border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 12px; width: 220px;
+  }
+  .size-picker.hidden { display: none; }
+  .size-picker-title { font-size: 13px; font-weight: 700; color: #1f5fa8; margin-bottom: 4px; text-align: center; }
+  .size-picker-sub { font-size: 11px; color: #777; margin-bottom: 8px; text-align: center; }
+  .size-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px; }
+  .size-buttons button {
+    background: #f4f7fb; border: 1px solid #ccc; padding: 8px;
+    border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 14px;
+  }
+  .size-buttons button:hover { background: #1f5fa8; color: white; border-color: #1f5fa8; }
+  .size-buttons button.current { background: #1f5fa8; color: white; border-color: #1f5fa8; }
+  .size-clear {
+    width: 100%; background: #fdedec; border: 1px solid #e6b0aa;
+    color: #c0392b; padding: 6px; border-radius: 4px; cursor: pointer;
+    font-size: 12px; font-weight: 600;
+  }
+  .size-clear:hover { background: #fadbd8; }
+
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #c0392b; color: white; padding: 12px 20px; border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3); z-index: 9999;
+    font-size: 14px; font-weight: 500; animation: slideUp 0.25s ease-out;
+  }
+  .toast.success { background: #27ae60; }
+  @keyframes slideUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+  .obj-section { margin-bottom: 20px; }
+  .obj-section-title {
+    font-size: 14px; font-weight: 600; color: #1f5fa8;
+    padding: 8px 12px; background: #f4f7fb; border-radius: 4px;
+    border-left: 4px solid #1f5fa8; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .obj-section.uncommitted .obj-section-title { color: #b9770e; border-left-color: #f39c12; background: #fef5e7; }
+  .pi-obj-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pi-obj-table th { background: #1f5fa8; color: white; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 12px; }
+  .pi-obj-table th.center, .pi-obj-table td.center { text-align: center; }
+  .pi-obj-table th.actions, .pi-obj-table td.actions { width: 44px; text-align: center; padding: 4px; }
+  .pi-obj-table th.bv, .pi-obj-table td.bv { width: 70px; }
+  .pi-obj-table tbody tr:nth-child(even) { background: #f9fbfd; }
+  .pi-obj-table td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  .pi-obj-table input.obj-text { width: 100%; border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; border-radius: 3px; font-family: inherit; }
+  .pi-obj-table input.obj-text:focus { outline: none; border-color: #1f5fa8; box-shadow: 0 0 0 2px rgba(31,95,168,0.15); }
+  .pi-obj-table input[type=number] { width: 56px; border: 1px solid #ddd; padding: 5px 4px; font-size: 13px; border-radius: 3px; text-align: center; }
+  .add-obj-btn {
+    margin-top: 6px; background: white; border: 1.5px dashed #1f5fa8;
+    color: #1f5fa8; padding: 7px; border-radius: 4px; cursor: pointer;
+    font-size: 12px; width: 100%; font-weight: 600;
+  }
+  .obj-section.uncommitted .add-obj-btn { border-color: #f39c12; color: #b9770e; }
+  .add-obj-btn:hover { background: #f4f7fb; }
+  .bv-help { font-size: 11px; color: #777; margin-top: 6px; padding: 8px 12px; background: #f9fbfd; border-radius: 3px; line-height: 1.5; }
+
+  .risks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .risk-card {
+    background: #fdedec; border: 1px solid #e6b0aa;
+    border-left: 5px solid #c0392b;
+    padding: 12px; padding-bottom: 28px; border-radius: 4px;
+    font-size: 13px; cursor: grab; position: relative; min-height: 90px;
+  }
+  .risk-card.dragging { opacity: 0.4; }
+  .risk-card textarea {
+    width: 100%; border: 1px solid #e6b0aa; padding: 6px; min-height: 60px;
+    border-radius: 3px; font-size: 13px; font-family: inherit; resize: vertical;
+    background: white;
+  }
+  .risk-card .del-btn { position: absolute; top: 4px; right: 6px; background: none; border: none; color: #999; cursor: pointer; font-size: 18px; line-height: 1; }
+  .risk-card .del-btn:hover { color: #c0392b; }
+  .risk-card .roam-tag { position: absolute; bottom: 6px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 3px; color: white; font-weight: 600; }
+  .roam-tag.resolved { background: #27ae60; }
+  .roam-tag.owned { background: #2980b9; }
+  .roam-tag.accepted { background: #f39c12; }
+  .roam-tag.mitigated { background: #16a085; }
+  .add-risk-btn {
+    background: white; border: 2px dashed #c0392b; color: #c0392b;
+    padding: 10px; border-radius: 4px; cursor: pointer; font-size: 13px;
+    font-weight: 600; min-height: 90px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .add-risk-btn:hover { background: #fef5f4; }
+
+  .roam-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; min-height: 70vh; }
+  .roam-art { grid-row: span 2; background: white; border: 2px solid #1f5fa8; border-radius: 6px; display: flex; flex-direction: column; }
+  .roam-quad { background: white; border: 2px solid #1f5fa8; border-radius: 6px; display: flex; flex-direction: column; }
+  .roam-head { padding: 12px; text-align: center; font-weight: 700; color: #1f5fa8; font-size: 15px; border-bottom: 1px solid #ddd; letter-spacing: 1px; }
+  .roam-head.resolved { color: #27ae60; }
+  .roam-head.owned { color: #2980b9; }
+  .roam-head.accepted { color: #f39c12; }
+  .roam-head.mitigated { color: #16a085; }
+  .roam-body { padding: 12px; flex: 1; overflow-y: auto; min-height: 250px; }
+  .roam-body.dragging-over { background: #e8f1fb; outline: 2px dashed #1f5fa8; }
+  .roam-add-btn { margin-top: 8px; width: 100%; background: white; border: 2px dashed #1f5fa8; color: #1f5fa8; padding: 10px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .roam-add-btn:hover { background: #f4f7fb; }
+  .risk-source-tag { display: inline-block; font-size: 10px; background: #34495e; color: white; padding: 2px 6px; border-radius: 2px; margin-bottom: 6px; }
+
+  @media (max-width: 1100px) { .roam-board { grid-template-columns: 1fr 1fr; } .roam-art { grid-row: span 1; grid-column: span 2; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    PI Planning Simulation <small>SAFe Training Lab</small>
+    <span id="connStatus" class="conn-status conn-init" title="Connecting..."></span>
+  </div>
+  <div class="nav-links" id="navLinks"></div>
+</div>
+
+<div class="view active" id="view-menu">
+  <div id="firebaseBanner" class="firebase-banner hidden">
+    <strong>⚠ Firebase not configured.</strong> The app is running in <strong>local mode</strong> — your changes won't sync to other teams.
+    To enable multi-team collaboration, paste your Firebase config into the HTML at the marker <code>FIREBASE_CONFIG</code>.
+  </div>
+
+  <div class="menu-hero">
+    <h1>Welcome to the PI Planning Simulation</h1>
+    <p>This interactive lab simulates a SAFe ART PI Planning event. Each team plans two iterations from a feature backlog, defines PI Objectives with Business Value, and identifies risks. The ART then ROAMs the risks together.</p>
+  </div>
+
+  <div class="group-count-selector" id="groupCountSelector">
+    <span class="selector-label">Number of teams:</span>
+    <button class="count-btn" data-n="2">2</button>
+    <button class="count-btn" data-n="3">3</button>
+    <button class="count-btn" data-n="4">4</button>
+    <button class="count-btn" data-n="5">5</button>
+    <div class="count-hint">Disabled teams won't appear on the navigation bar — their data is preserved when you switch.</div>
+  </div>
+
+  <div class="menu-grid" id="menuGrid"></div>
+
+  <div class="reset-area">
+    <button class="btn danger" onclick="resetGame()">⟲ Reset Game (all teams)</button>
+    <p class="reset-hint">Wipes all stories, objectives, risks, and capacities for everyone in this session. Use at the start of a new training run.</p>
+  </div>
+</div>
+
+<div id="dynamicViews"></div>
+
+<div id="sizePicker" class="size-picker hidden">
+  <div class="size-picker-title">Story Points</div>
+  <div class="size-picker-sub">Pick a Fibonacci estimate</div>
+  <div class="size-buttons">
+    <button onclick="setSize(1)">1</button>
+    <button onclick="setSize(2)">2</button>
+    <button onclick="setSize(3)">3</button>
+    <button onclick="setSize(5)">5</button>
+    <button onclick="setSize(8)">8</button>
+    <button onclick="setSize(13)">13</button>
+    <button onclick="setSize(21)">21</button>
+    <button onclick="setSize(40)">40</button>
+  </div>
+  <button class="size-clear" onclick="setSize(null)">Clear estimate</button>
+</div>
+
+<script>
+/* ============================================================
+   FIREBASE CONFIG  ← PASTE YOUR CONFIG HERE
+   Get it from: Firebase Console → Project Settings → Your Apps → Web
+   ============================================================ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyA8iLB6DOMZET9RqPm2_hhr1rdiiXZ1GlA",
+  authDomain:        "pi-planning-sim.firebaseapp.com",
+  projectId:         "pi-planning-sim",
+  storageBucket:     "pi-planning-sim.firebasestorage.app",
+  messagingSenderId: "231826286543",
+  appId:             "1:231826286543:web:63275c213121efe62e54ba"
+};
+const FIREBASE_CONFIGURED =
+  FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
+
+/* ============================================================
+   FEATURE LIBRARY  (F1..F10)
+   ============================================================ */
+const FEATURES = {
+  F1: { id:'F1', name:'Feature #1: Flexible Search', stories:[
+    { id:'F1-S1',  title:'Search by author',         size:null, type:'User Story',
+      desc:'As a book searcher\nI can search books by author\nSo that I can find all books by my favorite author or an author I have heard about' },
+    { id:'F1-S2',  title:'Misspelled author',        size:5,    type:'User Story',
+      desc:'As a book searcher\nI can search books by author and find the correct one even if there are misspellings\nSo that I can directly find a book with a specific title, even if my spelling or memory is deficient' },
+    { id:'F1-S3',  title:'Search by genre',          size:2,    type:'User Story',
+      desc:'As a book searcher\nI can search books by genre\nSo that I can find books in a specific genre' },
+    { id:'F1-S4',  title:'Receive title match',      size:8,    type:'User Story',
+      desc:'As the Match API\nI can receive a title match rating from the match algorithm\nSo that I can order results by match suitability' },
+    { id:'F1-S5',  title:'Receive author match',     size:8,    type:'User Story',
+      desc:'As the Match API\nI can receive an author match rating from the match algorithm\nSo that I can order results by match suitability' },
+    { id:'F1-S6',  title:'Search recommended books', size:8,    type:'User Story',
+      desc:'As a book searcher\nI can search for recommended books based on previous purchases or items in my shopping bag\nSo that I can find books that are similar to books that interested me' },
+    { id:'F1-S7',  title:'Search by title',          size:null, type:'User Story',
+      desc:'As a book searcher\nI can search books by title\nSo that I can directly find a book (or books) with a specific title' },
+    { id:'F1-S8',  title:'Misspelled title',         size:5,    type:'User Story',
+      desc:'As a book searcher\nI can search books by title and find the correct one even if it isn\u2019t an exact match or has a misspelling\nSo that I can directly find a book with a specific title' },
+    { id:'F1-S9',  title:'Genre suggestions',        size:1,    type:'User Story',
+      desc:'As a book searcher\nI have suggested search terms pop up for genres as I type\nSo that I can easily find and search on the genre I am looking for' },
+    { id:'F1-S10', title:'Internationalization',     size:3,    type:'Enabler',
+      desc:'ENABLER (TECHNICAL SPIKE):\nDetermine impact of internationalization on the solution so that it can be considered for the estimation of the internationalization epic' },
+    { id:'F1-S11', title:'Title suggestions',        size:3,    type:'User Story',
+      desc:'As a book searcher\nI have suggested search terms pop up for titles as I type\nSo that I can easily find and search for the title I am looking for' }
+  ]},
+  F2: { id:'F2', name:'Feature #2: Shopping Cart', stories:[
+    { id:'F2-S1', title:'Persistent shopping cart', size:null, type:'User Story',
+      desc:'As a book shopper\nI can access my shopping cart from any page\nSo that I can quickly review what I may be purchasing' },
+    { id:'F2-S2', title:'Change item number',       size:1,    type:'User Story',
+      desc:'As a book shopper\nI can change the number of items in my shopping cart\nSo that I can quickly update my cart' },
+    { id:'F2-S3', title:'Research AJAX',            size:5,    type:'Enabler',
+      desc:'ENABLER (TECHNICAL SPIKE):\nResearch AJAX capabilities for a better user experience for shopping cart updates' },
+    { id:'F2-S4', title:'Get shipping quote',       size:8,    type:'User Story',
+      desc:'As a book shopper\nI can get a shipping quote directly from my cart\nSo that I can quickly understand the total cost of my cart before continuing with the purchasing process' },
+    { id:'F2-S5', title:'Item number icon',         size:null, type:'User Story',
+      desc:'As a book shopper\nI can see an icon indicating the number of items in my shopping cart from any page\nSo that I can better determine whether I should continue shopping or access my shopping cart to review what I have purchased so far' },
+    { id:'F2-S6', title:'Remove items',             size:2,    type:'User Story',
+      desc:'As a book shopper\nI can remove items from my shopping cart\nSo that I can quickly update my cart' },
+    { id:'F2-S7', title:'Save items',               size:5,    type:'User Story',
+      desc:'As a book shopper\nI can save an item\nSo that I can retrieve it later' }
+  ]},
+  F3: { id:'F3', name:'Feature #3: Purchase by Credit Card', stories:[
+    { id:'F3-S1', title:'Enter new credit card',         size:null, type:'User Story',
+      desc:'As a book purchaser\nI can enter new credit card information\nSo that I can pay using a new credit card' },
+    { id:'F3-S2', title:'Save credit card',              size:null, type:'User Story',
+      desc:'As a book purchaser\nI can securely save my credit card information\nSo that I don\u2019t need to retype it for future purchases' },
+    { id:'F3-S3', title:'New shipping',                  size:2,    type:'User Story',
+      desc:'As a book purchaser\nI can enter new shipping information\nSo that I can ship to a new location' },
+    { id:'F3-S4', title:'Save shipping',                 size:3,    type:'User Story',
+      desc:'As a book purchaser\nI can securely save my shipping information\nSo that I don\u2019t need to retype it for future purchases' },
+    { id:'F3-S5', title:'Pick encryption mechanism',     size:5,    type:'Enabler',
+      desc:'ENABLER (TECHNICAL SPIKE):\nPick the encryption mechanism for saving credit card data' },
+    { id:'F3-S6', title:'Research garbage collection',   size:8,    type:'Enabler',
+      desc:'ENABLER (TECHNICAL SPIKE):\nResearch different garbage collection options, so that credit card data is removed from the server memory as soon as possible' },
+    { id:'F3-S7', title:'Access saved card',             size:2,    type:'User Story',
+      desc:'As a book purchaser\nI can access saved credit card information\nSo that I can retrieve what I saved when making previous purchases' },
+    { id:'F3-S8', title:'Access past purchases',         size:5,    type:'User Story',
+      desc:'As a book purchaser\nI can access past purchases\nSo that I can re-order the same items again' }
+  ]},
+  F5: { id:'F5', name:'Feature #5: Profile Management', stories:[
+    { id:'F5-S1',  title:'Create user profile',         size:null, type:'User Story',
+      desc:'As a book purchaser\nI can create a user profile\nSo that I do not have to enter my information each time I add books to my shopping cart or purchase books' },
+    { id:'F5-S2',  title:'Update user profile',         size:null, type:'User Story',
+      desc:'As a book purchaser\nI can update my user profile\nSo that I can keep it up to date as my personal information changes' },
+    { id:'F5-S3',  title:'Define shipping preferences', size:5,    type:'User Story',
+      desc:'As a book purchaser\nI can define my shipping preferences\nSo that I do not have to enter my information each time I purchase books' },
+    { id:'F5-S4',  title:'Add nickname/avatar',         size:2,    type:'User Story',
+      desc:'As a book purchaser\nI can add a nickname and avatar to my profile\nSo that I can rate and comment on books without people knowing my true identity' },
+    { id:'F5-S5',  title:'Enter all info',              size:5,    type:'User Story',
+      desc:'As a book purchaser\nI can enter all personal, shipping, and credit card information\nSo that I know there is no chance that my personal data will be intercepted or hacked, and that I will not receive unwanted communications' },
+    { id:'F5-S6',  title:'Define card preferences',     size:2,    type:'User Story',
+      desc:'As a book purchaser\nI can define my credit card preferences\nSo that I do not have to enter my credit card information each time I purchase books' },
+    { id:'F5-S7',  title:'A/B test profile creation',   size:8,    type:'Enabler',
+      desc:'EXPLORATION ENABLER:\nPrepare prototypes for an A/B test of two different modes of profile creation: a) multipage wizard for entering all data fields or b) a single page with all questions listed' },
+    { id:'F5-S8',  title:'Pick avatar component',       size:5,    type:'Enabler',
+      desc:'ARCHITECTURE ENABLER (SPIKE):\nPick a component for avatar upload and avatar resizing' },
+    { id:'F5-S9',  title:'Erase profile',               size:5,    type:'User Story',
+      desc:'As a book purchaser\nI can erase my profile\nSo that I can exercise my right to be forgotten\nNote: GDPR requirement' },
+    { id:'F5-S10', title:'Securely login',              size:8,    type:'User Story',
+      desc:'As a book purchaser\nI can securely login\nSo that there is no chance that my personal data will be intercepted or hacked' }
+  ]},
+  F6: { id:'F6', name:'Feature #6: Book Detail', stories:[
+    { id:'F6-S1', title:'See book image',     size:null, type:'User Story',
+      desc:'As a book browser\nI can see an image of the book cover\nSo that I can gain a quick emotional sense of whether this is a book I\u2019d like to further consider' },
+    { id:'F6-S2', title:'See related books',  size:2,    type:'User Story',
+      desc:'As a book browser\nI can see other books the author has written\nSo that I can determine whether another book by the author may be better for me' },
+    { id:'F6-S3', title:'See rating',         size:5,    type:'User Story',
+      desc:'As a book browser\nI can see the book rating by book purchasers\nSo that I can learn which books are most highly regarded by the people who most likely have actually read them' },
+    { id:'F6-S4', title:'See comments',       size:2,    type:'User Story',
+      desc:'As a book browser\nI can see comments about the book\nSo that I can understand what other readers think about it' },
+    { id:'F6-S5', title:'See author info',    size:8,    type:'User Story',
+      desc:'As a book browser\nI can see the bio and other details about the author\nSo that I can gain a quick sense of whether I may like the author and other books he or she may have written' },
+    { id:'F6-S6', title:'See book info',      size:null, type:'User Story',
+      desc:'As a book browser\nI can see the book name and author\nSo that I can recognize books based on the most well known information' }
+  ]},
+  F7: { id:'F7', name:'Feature #7: Book List Sorting', stories:[
+    { id:'F7-S1', title:'Sort author search by publish date', size:null, type:'User Story',
+      desc:'As a book searcher or browser\nI can sort the books returned from an author search by date published\nSo that I can easily find the newest and the oldest books' },
+    { id:'F7-S2', title:'Sort author search by title',        size:null, type:'User Story',
+      desc:'As a book searcher or browser\nI can sort the books returned from an author search by title\nSo that I can easily find the books with titles I might know' },
+    { id:'F7-S3', title:'Sort title search by author',        size:2,    type:'User Story',
+      desc:'As a book searcher or browser\nI can sort the books returned from a title search by author\nSo that I can easily find the book I want among many books with the same title' },
+    { id:'F7-S4', title:'Sort title search by genre',         size:2,    type:'User Story',
+      desc:'As a book searcher or browser\nI can sort the books returned from a title search by genre\nSo that I can easily find the book I want among many books with the same title in the genre that I want' },
+    { id:'F7-S5', title:'Prototype filtering options',        size:5,    type:'Enabler',
+      desc:'EXPLORATION ENABLER:\nPrototype different options for filtering and category representation for internal A/B testing' },
+    { id:'F7-S6', title:'Prototype pagination',               size:5,    type:'Enabler',
+      desc:'ARCHITECTURAL ENABLER (SPIKE):\nPrototype methods to organize pagination and changing the resulting page size' },
+    { id:'F7-S7', title:'Sort genre search by author',        size:3,    type:'User Story',
+      desc:'As a book searcher\nI can sort the books returned from a genre search by author\nSo that I can easily find the book I want among many books with the same author' }
+  ]},
+  F8: { id:'F8', name:'Feature #8: Book Browsing', stories:[
+    { id:'F8-S1', title:'View genres',                 size:2, type:'User Story',
+      desc:'As a book browser\nI can view a list of available genres\nSo that I can quickly determine which genre(s) I\u2019d like to browse' },
+    { id:'F8-S2', title:'Browse by genre/best seller', size:3, type:'User Story',
+      desc:'As a book browser\nI can browse a list of books for the genre I select with a clear indication of which are Tech Valley Times best sellers\nSo that I can locate books which have received positive professional reviews' },
+    { id:'F8-S3', title:'Browse best sellers',         size:2, type:'User Story',
+      desc:'As a book browser\nI can browse the Tech Valley Times Best Seller books in a variety of ways\nSo that I can find good books across genres and authors that I may otherwise not explore' },
+    { id:'F8-S4', title:'Browse by rating',            size:5, type:'User Story',
+      desc:'As a book browser\nI can browse books by user ratings in a variety of ways\nSo that I can find the most highly rated books by geeks like me across genres and authors' },
+    { id:'F8-S5', title:'A/B test UX browsing models', size:5, type:'Enabler',
+      desc:'EXPLORATION ENABLER:\nA/B test different UX models for browsing: leftside navigation; left-side and current selection criteria in the top, etc.' },
+    { id:'F8-S6', title:'Browse by sales',             size:8, type:'User Story',
+      desc:'As a book browser\nI can browse books by the number of copies sold over multiple time periods (e.g., today\u2019s best seller, this week\u2019s, this month\u2019s, etc.)\nSo that I can find the trendiest books purchased by geeks like me' },
+    { id:'F8-S7', title:'Browse by genre',             size:3, type:'User Story',
+      desc:'As a book browser\nI can browse a list of books for the genre I select with a clear indication of which are the most highly rated by other users\nSo that I can locate books which have received positive book purchaser reviews' }
+  ]},
+  F9: { id:'F9', name:'Feature #9: Book Rating', stories:[
+    { id:'F9-S1', title:'View unrated',              size:null, type:'User Story',
+      desc:'As a book rater\nI can view the books I\u2019ve purchased but not rated\nSo that I can choose which ones I\u2019d like to rate' },
+    { id:'F9-S2', title:'Sort by rating',            size:null, type:'User Story',
+      desc:'As a book rater\nI can sort the books I\u2019ve rated by rating\nSo that I can more easily remember my favorite books as time passes' },
+    { id:'F9-S3', title:'Show nickname - rating',    size:2,    type:'User Story',
+      desc:'As a book rater\nI can choose whether I show the nickname defined in my user profile or remain anonymous\nSo that I can have the privacy options I want on a case by case basis' },
+    { id:'F9-S4', title:'Change rating',             size:3,    type:'User Story',
+      desc:'As a book rater\nI can change my rating up to one week after I rated it\nSo that I can still reconsider my opinion' },
+    { id:'F9-S5', title:'Research cumulative ratings', size:5,  type:'Enabler',
+      desc:'EXPLORATION ENABLER:\nResearch a time-based cumulative rating of a book for PI 2' },
+    { id:'F9-S6', title:'Rating reminder notifications', size:5, type:'User Story',
+      desc:'As a book rater\nI can receive an email notification based on my personal notification schedule to rate a book I already purchased\nSo that I can more easily share my opinions even though I have a busy life' }
+  ]},
+  F10: { id:'F10', name:'Feature #10: Commenting', stories:[
+    { id:'F10-S1', title:'View uncommented',             size:null, type:'User Story',
+      desc:'As a book commentator\nI can view the books I\u2019ve purchased but not yet commented on\nSo that I can choose which ones I\u2019d like to invest my time in' },
+    { id:'F10-S2', title:'Comment with rich text',       size:null, type:'User Story',
+      desc:'As a book commentator\nI can use a rich text editor to author my comments\nSo that I have greater artistic freedom in expressing myself' },
+    { id:'F10-S3', title:'Comment reminder notification', size:5,   type:'User Story',
+      desc:'As a book commentator\nI can receive an email notification based on my personal notification schedule to comment on a book I already purchased\nSo that I can more easily share my opinions even though I have a busy life' },
+    { id:'F10-S4', title:'Show nickname - comments',     size:3,    type:'User Story',
+      desc:'As a book commentator\nI can choose whether I show the nickname defined in my user profile or remain anonymous\nSo that I can have the privacy options I want on a case by case basis' },
+    { id:'F10-S5', title:'Remove comment',               size:2,    type:'User Story',
+      desc:'As a commentator\nI can remove a comment at any time\nSo that I can reconsider how I participate and have more control over my privacy' },
+    { id:'F10-S6', title:'Research spam protection',     size:3,    type:'Enabler',
+      desc:'ARCHITECTURAL ENABLER (SPIKE):\nResearch basic spam protection mechanisms for commenting' },
+    { id:'F10-S7', title:'Character count',              size:1,    type:'User Story',
+      desc:'As a book commentator\nI have a visual indicator of how many characters I\u2019ve typed and how many I have left\nSo that I can more efficiently compose a review of allowed/appropriate length' },
+    { id:'F10-S8', title:'Change comment',               size:5,    type:'User Story',
+      desc:'As a book commentator\nI can change my comment up to one week after I comment on it\nSo that I can still reconsider my opinion' },
+    { id:'F10-S9', title:'Test comment rating',          size:5,    type:'Enabler',
+      desc:'EXPLORATION ENABLER:\nInternally test the "is this comment useful?" functionality for PI 2' },
+    { id:'F10-S10', title:'Remove all comments',         size:5,    type:'User Story',
+      desc:'As a commentator\nI can remove all my comments at any time\nSo that I can exercise my right to be forgotten\nNote: GDPR requirement' }
+  ]}
+};
+
+const GROUPS = [
+  { id:'G1', name:'Group 1 – Search & Cart',         shortName:'Group 1', featureIds:['F1','F2']  },
+  { id:'G2', name:'Group 2 – Cart & Payments',       shortName:'Group 2', featureIds:['F2','F3']  },
+  { id:'G3', name:'Group 3 – Profile & Book Detail', shortName:'Group 3', featureIds:['F5','F6']  },
+  { id:'G4', name:'Group 4 – Sorting & Browsing',    shortName:'Group 4', featureIds:['F7','F8']  },
+  { id:'G5', name:'Group 5 – Rating & Commenting',   shortName:'Group 5', featureIds:['F9','F10'] }
+];
+
+/* ============================================================
+   STATE  (local cache + Firestore sync when configured)
+   ============================================================ */
+const STORAGE_KEY = 'pi-planning-sim-v5';
+
+function defaultGroupState(g) {
+  const stories = {};
+  const order = { backlog: [], iter1: [], iter2: [] };
+  g.featureIds.forEach(fid => {
+    FEATURES[fid].stories.forEach(s => {
+      stories[s.id] = { location:'backlog', size:s.size };
+      order.backlog.push(s.id);
+    });
+  });
+  return { stories, order, iter1Capacity:30, iter2Capacity:30, objectives:[], risks:[] };
+}
+function defaultState() {
+  const s = { groups:{}, artRisks:[], activeSubTab:{}, enabledGroupCount: 5 };
+  GROUPS.forEach(g => { s.groups[g.id] = defaultGroupState(g); s.activeSubTab[g.id] = 'board'; });
+  return s;
+}
+function uid() { return 'x' + Math.random().toString(36).slice(2,9); }
+
+let state;
+try {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  state = raw ? JSON.parse(raw) : defaultState();
+  if (!state.activeSubTab) state.activeSubTab = {};
+  if (typeof state.enabledGroupCount !== 'number') state.enabledGroupCount = 5;
+  ensureStateStructure();
+} catch (e) { state = defaultState(); }
+
+function ensureStateStructure() {
+  GROUPS.forEach(g => {
+    if (!state.groups[g.id]) state.groups[g.id] = defaultGroupState(g);
+    if (!state.activeSubTab[g.id]) state.activeSubTab[g.id] = 'board';
+    if (!state.groups[g.id].order) state.groups[g.id].order = { backlog:[], iter1:[], iter2:[] };
+    if (!state.groups[g.id].objectives) state.groups[g.id].objectives = [];
+    if (!state.groups[g.id].risks) state.groups[g.id].risks = [];
+    if (!state.groups[g.id].stories) state.groups[g.id].stories = {};
+    g.featureIds.forEach(fid => {
+      FEATURES[fid].stories.forEach(s => {
+        if (!state.groups[g.id].stories[s.id]) state.groups[g.id].stories[s.id] = { location:'backlog', size:s.size };
+        const ord = state.groups[g.id].order;
+        const inAny = ord.backlog.includes(s.id) || ord.iter1.includes(s.id) || ord.iter2.includes(s.id);
+        if (!inAny) ord[(state.groups[g.id].stories[s.id].location || 'backlog')].push(s.id);
+      });
+    });
+  });
+  if (!Array.isArray(state.artRisks)) state.artRisks = [];
+}
+
+/* ============================================================
+   FIREBASE SYNC LAYER
+   ============================================================ */
+let db = null;
+let gameDocRef = null;
+let lastAppliedHash = null;
+let isActivelyEditing = false;
+let pendingRemoteState = null;
+
+function setConnectionStatus(status) {
+  const el = document.getElementById('connStatus');
+  if (!el) return;
+  el.className = 'conn-status conn-' + status;
+  el.title = ({
+    online:  'Connected — changes sync to all teams',
+    offline: 'Offline — changes will sync when reconnected',
+    error:   'Sync error — check Firebase config or rules',
+    init:    'Connecting…',
+    local:   'Local mode (Firebase not configured)'
+  })[status] || '';
+}
+
+function initFirebase() {
+  if (!FIREBASE_CONFIGURED) {
+    document.getElementById('firebaseBanner').classList.remove('hidden');
+    setConnectionStatus('local');
+    return;
+  }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    gameDocRef = db.collection('pi-planning').doc('main');
+
+    gameDocRef.onSnapshot({ includeMetadataChanges: false }, (snap) => {
+      setConnectionStatus('online');
+      if (snap.metadata.hasPendingWrites) return;     // our own un-confirmed write
+      if (!snap.exists) {                              // first run — push our default state
+        gameDocRef.set(serializeState()).catch(e => console.error(e));
+        return;
+      }
+      const remote = snap.data();
+      const hash = JSON.stringify({ g: remote.groups, a: remote.artRisks, n: remote.enabledGroupCount });
+      if (hash === lastAppliedHash) return;            // no real change
+      lastAppliedHash = hash;
+
+      if (isActivelyEditing) {
+        pendingRemoteState = remote;                   // defer until user blurs
+        return;
+      }
+      applyRemoteState(remote);
+    }, (err) => {
+      console.error('Firestore listener error:', err);
+      setConnectionStatus('error');
+      showToast('Sync error: ' + (err.message || 'check Firebase config / rules'), false);
+    });
+
+    window.addEventListener('online',  () => setConnectionStatus('online'));
+    window.addEventListener('offline', () => setConnectionStatus('offline'));
+  } catch (e) {
+    console.error('Firebase init failed:', e);
+    setConnectionStatus('error');
+    showToast('Firebase init failed — check config');
+  }
+}
+
+function serializeState() {
+  return {
+    groups: state.groups,
+    artRisks: state.artRisks,
+    enabledGroupCount: state.enabledGroupCount,
+    updatedAt: Date.now()
+  };
+}
+
+function applyRemoteState(remote) {
+  if (!remote) return;
+  state.groups = remote.groups || state.groups;
+  state.artRisks = Array.isArray(remote.artRisks) ? remote.artRisks : [];
+  state.enabledGroupCount = remote.enabledGroupCount || 5;
+  ensureStateStructure();
+  // Persist local cache
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  rerenderActiveView();
+}
+
+function rerenderActiveView() {
+  buildNav();
+  buildCountSelector();
+  renderMenuGrid();
+  document.querySelectorAll('.view.active').forEach(v => {
+    if (v.id === 'view-menu') return;
+    if (v.id === 'view-risk-review') renderRiskReview();
+    else if (v.id.startsWith('view-group-')) renderGroup(v.id.replace('view-group-', ''));
+  });
+}
+
+function save() {
+  // local cache
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  // cloud sync
+  if (gameDocRef) {
+    const payload = serializeState();
+    lastAppliedHash = JSON.stringify({ g: payload.groups, a: payload.artRisks, n: payload.enabledGroupCount });
+    gameDocRef.set(payload).catch(err => {
+      console.error('Sync error:', err);
+      setConnectionStatus('error');
+    });
+  }
+}
+
+function resetGame() {
+  const msg = FIREBASE_CONFIGURED
+    ? 'Reset the game for ALL connected teams?\n\nThis will clear all stories, objectives, risks, and capacities for everyone in this session.'
+    : 'Reset this game?\n\nThis will clear all stories, objectives, risks, and capacities.';
+  if (!confirm(msg)) return;
+  const fresh = defaultState();
+  state.groups = fresh.groups;
+  state.artRisks = fresh.artRisks;
+  state.enabledGroupCount = fresh.enabledGroupCount;
+  state.activeSubTab = fresh.activeSubTab;
+  save();
+  rerenderActiveView();
+  showToast('Game reset for all teams.', true);
+}
+
+// Defer remote updates while user is typing in inputs/textareas
+document.addEventListener('focusin', e => {
+  if (e.target.matches('input, textarea')) isActivelyEditing = true;
+});
+document.addEventListener('focusout', e => {
+  if (e.target.matches('input, textarea')) {
+    isActivelyEditing = false;
+    if (pendingRemoteState) {
+      const r = pendingRemoteState;
+      pendingRemoteState = null;
+      applyRemoteState(r);
+    }
+  }
+});
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function findStoryById(sid) {
+  for (const fid in FEATURES) {
+    const s = FEATURES[fid].stories.find(x => x.id === sid);
+    if (s) return s;
+  }
+  return null;
+}
+function findFeatureCodeForStory(sid, groupId) {
+  const g = GROUPS.find(x => x.id === groupId);
+  for (let i = 0; i < g.featureIds.length; i++) {
+    if (FEATURES[g.featureIds[i]].stories.find(s => s.id === sid)) return i + 1;
+  }
+  return 1;
+}
+function isUnsized(v) { return v === null || v === undefined || v === ''; }
+function escHTML(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function escAttr(s) { return escHTML(s); }
+function showToast(msg, success) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (success ? ' success' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+function isGroupEnabled(groupId) {
+  const idx = GROUPS.findIndex(g => g.id === groupId);
+  return idx >= 0 && idx < state.enabledGroupCount;
+}
+function enabledGroups() { return GROUPS.slice(0, state.enabledGroupCount); }
+
+/* ============================================================
+   NAV + MENU
+   ============================================================ */
+function buildNav() {
+  const nav = document.getElementById('navLinks');
+  nav.innerHTML = '';
+  const items = [{id:'menu', label:'Main Menu', enabled:true}]
+    .concat(GROUPS.map((g, idx) => ({ id:'group-'+g.id, label:g.shortName, enabled: idx < state.enabledGroupCount })))
+    .concat([{id:'risk-review', label:'Risk Review (ROAM)', enabled:true}]);
+  items.forEach(it => {
+    const b = document.createElement('button');
+    b.className = 'nav-btn';
+    b.textContent = it.label;
+    b.dataset.view = it.id;
+    if (!it.enabled) {
+      b.disabled = true;
+      b.title = 'This team is disabled. Adjust the team count on the Main Menu.';
+    } else {
+      b.onclick = () => showView(it.id);
+    }
+    nav.appendChild(b);
+  });
+}
+
+function showView(id) {
+  if (id.startsWith('group-')) {
+    const gid = id.replace('group-','');
+    if (!isGroupEnabled(gid)) { showView('menu'); return; }
+  }
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === id));
+  const target = id === 'menu' ? document.getElementById('view-menu') : document.getElementById('view-' + id);
+  if (target) target.classList.add('active');
+  if (id !== 'menu') renderView(id);
+  hideSizePicker();
+  window.scrollTo(0,0);
+}
+
+function buildMenu() { buildCountSelector(); renderMenuGrid(); }
+function buildCountSelector() {
+  const sel = document.getElementById('groupCountSelector');
+  sel.querySelectorAll('.count-btn').forEach(btn => {
+    const n = Number(btn.dataset.n);
+    btn.classList.toggle('active', n === state.enabledGroupCount);
+    btn.onclick = () => setEnabledGroupCount(n);
+  });
+}
+function setEnabledGroupCount(n) {
+  state.enabledGroupCount = n; save();
+  buildCountSelector(); renderMenuGrid(); buildNav();
+}
+function renderMenuGrid() {
+  const grid = document.getElementById('menuGrid');
+  grid.innerHTML = '';
+  GROUPS.forEach((g, idx) => {
+    const enabled = idx < state.enabledGroupCount;
+    const featLabels = g.featureIds.map(fid => FEATURES[fid].name.replace('Feature #', 'F')).join(' • ');
+    const card = document.createElement('div');
+    card.className = 'menu-card' + (enabled ? '' : ' disabled');
+    card.innerHTML = `
+      ${enabled ? '' : '<span class="disabled-badge">Disabled</span>'}
+      <h3>${g.name}</h3>
+      <p>${enabled ? 'Plan Iterations 1.1 and 1.2, define PI Objectives, identify risks.' : 'Increase team count to enable this team.'}</p>
+      <div class="features">${featLabels}</div>`;
+    if (enabled) card.onclick = () => showView('group-'+g.id);
+    grid.appendChild(card);
+  });
+  const r = document.createElement('div');
+  r.className = 'menu-card risk';
+  r.innerHTML = `
+    <h3>Risk Review (ROAM)</h3>
+    <p>ART-level risk review. Add or drag risks into Resolved, Owned, Accepted, or Mitigated.</p>
+    <div class="features">Cross-team • Facilitated by RTE</div>`;
+  r.onclick = () => showView('risk-review');
+  grid.appendChild(r);
+}
+
+function buildViewShells() {
+  const host = document.getElementById('dynamicViews');
+  host.innerHTML = '';
+  GROUPS.forEach(g => {
+    const v = document.createElement('div');
+    v.id = 'view-group-' + g.id; v.className = 'view';
+    host.appendChild(v);
+  });
+  const r = document.createElement('div');
+  r.id = 'view-risk-review'; r.className = 'view';
+  host.appendChild(r);
+}
+
+function renderView(id) {
+  if (id.startsWith('group-')) renderGroup(id.replace('group-',''));
+  else if (id === 'risk-review') renderRiskReview();
+}
+
+/* ============================================================
+   GROUP VIEW
+   ============================================================ */
+function renderGroup(groupId) {
+  const g = GROUPS.find(x => x.id === groupId);
+  const view = document.getElementById('view-group-' + groupId);
+  const tab = state.activeSubTab[groupId] || 'board';
+  view.innerHTML = `
+    <div class="group-header">
+      <h2>${g.name}</h2>
+      <div class="actions">
+        <button class="btn secondary" onclick="showView('menu')">← Main Menu</button>
+      </div>
+    </div>
+    <div class="subtabs">
+      <button class="subtab ${tab==='board'?'active':''}" onclick="setSubTab('${groupId}','board')">Team Board</button>
+      <button class="subtab ${tab==='objectives'?'active':''}" onclick="setSubTab('${groupId}','objectives')">PI Objectives</button>
+      <button class="subtab ${tab==='risks'?'active':''}" onclick="setSubTab('${groupId}','risks')">Risks</button>
+    </div>
+    <div class="subview">
+      ${tab==='board' ? renderTeamBoard(groupId)
+        : tab==='objectives' ? renderObjectivesView(groupId)
+        : renderRisksView(groupId)}
+    </div>`;
+  if (tab === 'board') attachBoardHandlers(groupId);
+  if (tab === 'risks') attachRiskDragHandlers(groupId);
+}
+function setSubTab(groupId, t) {
+  // activeSubTab is local-only (per-user UI state) — don't sync to cloud
+  state.activeSubTab[groupId] = t;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  renderGroup(groupId);
+}
+
+function renderTeamBoard(groupId) {
+  const g = GROUPS.find(x => x.id === groupId);
+  const gs = state.groups[groupId];
+  let l1 = 0, l2 = 0;
+  Object.entries(gs.stories).forEach(([_, st]) => {
+    const sz = Number(st.size) || 0;
+    if (st.location === 'iter1') l1 += sz;
+    else if (st.location === 'iter2') l2 += sz;
+  });
+  return `
+    <div class="team-board-wrap">
+    <div class="team-board">
+      <div class="col">
+        <div class="col-head">
+          <span class="dots">• • • •</span><span>Backlog</span>
+          <span style="font-size:11px;font-weight:400">${g.featureIds.length} features</span>
+        </div>
+        <div class="col-body drop-target" data-loc="backlog" data-group="${groupId}">
+          ${renderBacklogContent(groupId)}
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="dots">• • • •</span><span>Iteration 1.1</span><span></span></div>
+        ${renderIterationControls(groupId, 'iter1', l1, gs.iter1Capacity)}
+        <div class="col-body drop-target" data-loc="iter1" data-group="${groupId}">
+          ${renderStoriesInLocation(groupId, 'iter1')}
+        </div>
+      </div>
+      <div class="col">
+        <div class="col-head"><span class="dots">• • • •</span><span>Iteration 1.2</span><span></span></div>
+        ${renderIterationControls(groupId, 'iter2', l2, gs.iter2Capacity)}
+        <div class="col-body drop-target" data-loc="iter2" data-group="${groupId}">
+          ${renderStoriesInLocation(groupId, 'iter2')}
+        </div>
+      </div>
+    </div>
+    </div>`;
+}
+
+function renderIterationControls(groupId, iter, load, capacity) {
+  capacity = Number(capacity) || 0;
+  const remaining = capacity - load;
+  const pct = capacity > 0 ? (load / capacity) * 100 : 0;
+  let cls = '';
+  if (pct > 100) cls = 'over'; else if (pct > 80) cls = 'warn';
+  return `
+    <div class="iter-controls">
+      <div class="iter-row">
+        <label>Capacity (pts):</label>
+        <input type="number" min="0" value="${capacity}" onchange="setCapacity('${groupId}','${iter}',this.value)">
+      </div>
+      <div class="iter-row">
+        <label>Load:</label>
+        <span class="load-value ${cls}">${load}</span>
+      </div>
+      <div class="capacity-bar">
+        <div class="capacity-fill ${cls}" style="width:${Math.min(100, pct)}%"></div>
+      </div>
+      <div class="remaining-text ${remaining < 0 ? 'over' : ''}">
+        ${remaining >= 0 ? 'Remaining: ' + remaining + ' pts' : 'Over by ' + Math.abs(remaining) + ' pts!'}
+      </div>
+    </div>`;
+}
+
+function renderBacklogContent(groupId) {
+  const g = GROUPS.find(x => x.id === groupId);
+  const order = state.groups[groupId].order.backlog;
+  return g.featureIds.map((fid, idx) => {
+    const f = FEATURES[fid];
+    const featStoryIds = new Set(f.stories.map(s => s.id));
+    const orderedStories = order.filter(sid => featStoryIds.has(sid)).map(sid => f.stories.find(s => s.id === sid));
+    return `
+      <div class="feature-block feat-${idx + 1}">
+        <div class="feature-title">${f.name}</div>
+        ${orderedStories.length
+          ? orderedStories.map(s => storyCardHTML(s, groupId, idx + 1)).join('')
+          : '<div class="empty-hint" style="padding:8px">All stories planned ✓</div>'}
+      </div>`;
+  }).join('');
+}
+
+function renderStoriesInLocation(groupId, location) {
+  const order = state.groups[groupId].order[location] || [];
+  const cards = order.map(sid => {
+    const s = findStoryById(sid);
+    if (!s) return '';
+    const featCode = findFeatureCodeForStory(sid, groupId);
+    return storyCardHTML(s, groupId, featCode, true);
+  });
+  return cards.join('') || '<div class="empty-hint">Drag stories here from the backlog<br><small>(stories must be estimated first)</small></div>';
+}
+
+function storyCardHTML(s, groupId, featCode, showFeatPill = false) {
+  const st = state.groups[groupId].stories[s.id];
+  const sizeDisplay = isUnsized(st.size) ? '?' : st.size;
+  const enablerCls = s.type === 'Enabler' ? 'enabler' : '';
+  const featLabel = showFeatPill ? `<span class="feat-pill f-${featCode}">F${featCode}</span>` : '';
+  return `
+    <div class="story-card f-${featCode} ${enablerCls}" draggable="true"
+         data-story="${s.id}" data-group="${groupId}"
+         onclick="toggleExpand(event, this)">
+      <div class="size-badge ${isUnsized(st.size) ? 'unsized' : ''}"
+           onclick="showSizePicker('${groupId}','${s.id}', event)"
+           title="${isUnsized(st.size) ? 'Click to estimate' : 'Click to update estimate'}">${sizeDisplay}</div>
+      <div class="story-title">${s.title}</div>
+      <div class="story-meta">
+        ${featLabel}
+        <span class="story-tag ${enablerCls}">${s.type}</span>
+        <span>${s.id}</span>
+      </div>
+      <div class="story-desc">${escHTML(s.desc).replace(/\n/g, '<br>')}</div>
+    </div>`;
+}
+
+function renderObjectivesView(groupId) {
+  const objs = state.groups[groupId].objectives;
+  const committed = objs.filter(o => !o.uncommitted);
+  const uncommitted = objs.filter(o => o.uncommitted);
+
+  const tableRow = o => `
+    <tr>
+      <td><input type="text" class="obj-text" value="${escAttr(o.text)}"
+        onchange="updateObj('${groupId}','${o.id}','text',this.value)"
+        placeholder="State the business outcome the team commits to deliver..."></td>
+      <td class="bv center">
+        <input type="number" min="1" max="10" value="${o.bv}"
+          onchange="updateObj('${groupId}','${o.id}','bv',this.value)" placeholder="1-10"></td>
+      <td class="bv center">
+        <input type="number" min="1" max="10" value="${o.abv}"
+          onchange="updateObj('${groupId}','${o.id}','abv',this.value)" placeholder="end of PI"></td>
+      <td class="actions"><button class="btn small danger" onclick="delObj('${groupId}','${o.id}')">×</button></td>
+    </tr>`;
+
+  return `
+    <div class="obj-section">
+      <div class="obj-section-title">
+        <span>Committed PI Objectives</span>
+        <span style="font-size:11px;font-weight:400;color:#555">${committed.length} objective(s)</span>
+      </div>
+      <table class="pi-obj-table">
+        <thead><tr><th>Objective</th><th class="center bv">Planned BV</th><th class="center bv">Actual BV</th><th class="actions"></th></tr></thead>
+        <tbody>${committed.length ? committed.map(tableRow).join('') : '<tr><td colspan="4" class="empty-hint" style="padding:18px">No committed objectives yet.</td></tr>'}</tbody>
+      </table>
+      <button class="add-obj-btn" onclick="addObj('${groupId}', false)">+ Add Committed Objective</button>
+    </div>
+    <div class="obj-section uncommitted">
+      <div class="obj-section-title">
+        <span>Uncommitted Objectives (Stretch)</span>
+        <span style="font-size:11px;font-weight:400;color:#555">${uncommitted.length} objective(s)</span>
+      </div>
+      <table class="pi-obj-table">
+        <thead><tr><th>Objective</th><th class="center bv">Planned BV</th><th class="center bv">Actual BV</th><th class="actions"></th></tr></thead>
+        <tbody>${uncommitted.length ? uncommitted.map(tableRow).join('') : '<tr><td colspan="4" class="empty-hint" style="padding:18px">No uncommitted objectives yet.</td></tr>'}</tbody>
+      </table>
+      <button class="add-obj-btn" onclick="addObj('${groupId}', true)">+ Add Uncommitted Objective</button>
+    </div>
+    <div class="bv-help">
+      <strong>BV (Business Value)</strong> — set by Business Owners on a 1–10 scale during PI Planning.
+      <strong>Actual BV</strong> — assessed at the end of the PI based on what was actually delivered.
+      Uncommitted objectives don't affect the team's predictability measure.
+    </div>`;
+}
+
+function renderRisksView(groupId) {
+  const risks = state.groups[groupId].risks;
+  return `
+    <div style="margin-bottom:14px;color:#555;font-size:13px;line-height:1.5;">
+      Identify risks, dependencies or impediments the team has surfaced during planning. These will appear on the
+      <strong>ART Risk Review (ROAM)</strong> board for the program-level review where they get categorized as
+      <em>Resolved, Owned, Accepted, or Mitigated</em>.
+    </div>
+    <div class="risks-grid">
+      ${risks.map(r => `
+        <div class="risk-card" draggable="true" data-risk="${r.id}" data-group="${groupId}">
+          <button class="del-btn" onclick="delRisk('${groupId}','${r.id}')">×</button>
+          <textarea onchange="updateRisk('${groupId}','${r.id}',this.value)" placeholder="Describe the risk...">${escHTML(r.text)}</textarea>
+          ${r.status && r.status !== 'unassigned' ? '<span class="roam-tag ' + r.status + '">' + r.status.toUpperCase() + '</span>' : ''}
+        </div>`).join('')}
+      <button class="add-risk-btn" onclick="addRisk('${groupId}')">+ Add Risk</button>
+    </div>`;
+}
+
+/* ============================================================
+   MUTATIONS
+   ============================================================ */
+function setCapacity(groupId, iter, val) {
+  state.groups[groupId][iter + 'Capacity'] = Number(val) || 0;
+  save(); renderGroup(groupId);
+}
+function toggleExpand(ev, el) {
+  const t = ev.target;
+  if (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.classList.contains('size-badge')) return;
+  el.classList.toggle('expanded');
+}
+function addObj(groupId, uncommitted) {
+  state.groups[groupId].objectives.push({ id: uid(), text: '', bv: '', abv: '', uncommitted: !!uncommitted });
+  save(); renderGroup(groupId);
+}
+function updateObj(groupId, objId, field, val) {
+  const o = state.groups[groupId].objectives.find(x => x.id === objId);
+  if (!o) return;
+  o[field] = field === 'text' ? val : (val === '' ? '' : Number(val));
+  save();
+}
+function delObj(groupId, objId) {
+  state.groups[groupId].objectives = state.groups[groupId].objectives.filter(o => o.id !== objId);
+  save(); renderGroup(groupId);
+}
+function addRisk(groupId) {
+  state.groups[groupId].risks.push({ id: uid(), text: '', status: 'unassigned' });
+  save(); renderGroup(groupId);
+}
+function updateRisk(groupId, riskId, val) {
+  const r = state.groups[groupId].risks.find(x => x.id === riskId);
+  if (r) { r.text = val; save(); }
+}
+function delRisk(groupId, riskId) {
+  state.groups[groupId].risks = state.groups[groupId].risks.filter(r => r.id !== riskId);
+  save(); renderGroup(groupId);
+}
+
+/* ============================================================
+   SIZE PICKER
+   ============================================================ */
+let sizeContext = null;
+function showSizePicker(groupId, storyId, ev) {
+  ev.stopPropagation();
+  sizeContext = { groupId, storyId };
+  const popover = document.getElementById('sizePicker');
+  popover.classList.remove('hidden');
+  const x = Math.min(ev.clientX + 8, window.innerWidth - 240);
+  const y = Math.min(ev.clientY + 8, window.innerHeight - 200);
+  popover.style.left = Math.max(8, x) + 'px';
+  popover.style.top = Math.max(8, y) + 'px';
+  const cur = state.groups[groupId].stories[storyId].size;
+  popover.querySelectorAll('.size-buttons button').forEach(b => {
+    b.classList.toggle('current', !isUnsized(cur) && Number(b.textContent) === Number(cur));
+  });
+}
+function setSize(val) {
+  if (!sizeContext) return;
+  state.groups[sizeContext.groupId].stories[sizeContext.storyId].size = val;
+  const gid = sizeContext.groupId;
+  hideSizePicker();
+  save();
+  renderGroup(gid);
+}
+function hideSizePicker() {
+  const p = document.getElementById('sizePicker');
+  if (p) p.classList.add('hidden');
+  sizeContext = null;
+}
+document.addEventListener('click', (e) => {
+  const popover = document.getElementById('sizePicker');
+  if (!popover || popover.classList.contains('hidden')) return;
+  if (popover.contains(e.target)) return;
+  if (e.target.classList && e.target.classList.contains('size-badge')) return;
+  hideSizePicker();
+});
+
+/* ============================================================
+   DRAG & DROP
+   ============================================================ */
+function attachBoardHandlers(groupId) {
+  const view = document.getElementById('view-group-' + groupId);
+  view.querySelectorAll('.story-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      const tag = e.target.tagName;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' ||
+          (e.target.classList && e.target.classList.contains('size-badge'))) {
+        e.preventDefault(); return;
+      }
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', JSON.stringify({
+        kind: 'story', storyId: card.dataset.story, groupId: card.dataset.group
+      }));
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+
+  view.querySelectorAll('.drop-target').forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const draggingCard = view.querySelector('.story-card.dragging');
+      if (draggingCard && (zone.dataset.loc === 'iter1' || zone.dataset.loc === 'iter2')) {
+        const sid = draggingCard.dataset.story;
+        const st = state.groups[groupId].stories[sid];
+        if (isUnsized(st.size)) {
+          zone.classList.add('drop-blocked');
+          zone.classList.remove('dragging-over');
+          return;
+        }
+      }
+      zone.classList.add('dragging-over');
+      zone.classList.remove('drop-blocked');
+    });
+    zone.addEventListener('dragleave', e => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove('dragging-over', 'drop-blocked');
+    });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragging-over', 'drop-blocked');
+      let payload;
+      try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+      if (payload.kind !== 'story' || payload.groupId !== groupId) return;
+
+      const newLoc = zone.dataset.loc;
+      const gs = state.groups[groupId];
+      const story = gs.stories[payload.storyId];
+
+      if ((newLoc === 'iter1' || newLoc === 'iter2') && isUnsized(story.size)) {
+        showToast('⚠ Estimate this story before adding it to an iteration. Click the "?" badge to set story points.');
+        return;
+      }
+
+      const oldLoc = story.location;
+      const oldOrderArr = gs.order[oldLoc];
+      const oldIdx = oldOrderArr.indexOf(payload.storyId);
+      if (oldIdx >= 0) oldOrderArr.splice(oldIdx, 1);
+
+      const dropY = e.clientY;
+      const cards = [...zone.querySelectorAll('.story-card')].filter(c => c.dataset.story !== payload.storyId);
+      const newOrderArr = gs.order[newLoc];
+      let insertIdx = newOrderArr.length;
+      for (let i = 0; i < cards.length; i++) {
+        const r = cards[i].getBoundingClientRect();
+        if (dropY < r.top + r.height / 2) {
+          const sidAtPos = cards[i].dataset.story;
+          const idxInOrder = newOrderArr.indexOf(sidAtPos);
+          if (idxInOrder >= 0) { insertIdx = idxInOrder; break; }
+        }
+      }
+      newOrderArr.splice(insertIdx, 0, payload.storyId);
+
+      story.location = newLoc;
+      save();
+      renderGroup(groupId);
+    });
+  });
+}
+
+function attachRiskDragHandlers(groupId) {
+  const view = document.getElementById('view-group-' + groupId);
+  view.querySelectorAll('.risk-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      const tag = e.target.tagName;
+      if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'INPUT') { e.preventDefault(); return; }
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', JSON.stringify({ kind: 'risk', riskId: card.dataset.risk, groupId: card.dataset.group }));
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+}
+
+/* ============================================================
+   RISK REVIEW
+   ============================================================ */
+function renderRiskReview() {
+  const view = document.getElementById('view-risk-review');
+  const allRisks = [];
+  enabledGroups().forEach(g => {
+    state.groups[g.id].risks.forEach(r => { allRisks.push({ ...r, sourceGroup: g.id, sourceLabel: g.shortName }); });
+  });
+  state.artRisks.forEach(r => { allRisks.push({ ...r, sourceGroup: 'ART', sourceLabel: 'ART' }); });
+  const byStatus = (st) => allRisks.filter(r => (r.status || 'unassigned') === st);
+
+  const riskHTML = (r) => `
+    <div class="risk-card" draggable="true" data-risk-id="${r.id}" data-source="${r.sourceGroup}">
+      <button class="del-btn" onclick="delRiskRoam('${r.sourceGroup}','${r.id}')">×</button>
+      <span class="risk-source-tag">${r.sourceLabel}</span>
+      <textarea onchange="updateRiskRoam('${r.sourceGroup}','${r.id}',this.value)" placeholder="Describe the risk...">${escHTML(r.text)}</textarea>
+    </div>`;
+
+  view.innerHTML = `
+    <div class="group-header">
+      <h2 style="color:#c0392b">ART Risk Review – ROAM</h2>
+      <div class="actions"><button class="btn secondary" onclick="showView('menu')">← Main Menu</button></div>
+    </div>
+    <div class="roam-board">
+      <div class="roam-art">
+        <div class="roam-head">ART PI RISKS</div>
+        <div class="roam-body roam-drop" data-status="unassigned">
+          ${byStatus('unassigned').map(riskHTML).join('') || '<div class="empty-hint">No unassigned risks. Add ART-level risks here, or surface team risks via the team boards.</div>'}
+          <button class="roam-add-btn" onclick="addArtRisk()">+ Add ART-level Risk</button>
+        </div>
+      </div>
+      <div class="roam-quad">
+        <div class="roam-head resolved">RESOLVED</div>
+        <div class="roam-body roam-drop" data-status="resolved">${byStatus('resolved').map(riskHTML).join('') || '<div class="empty-hint">Drop here</div>'}</div>
+      </div>
+      <div class="roam-quad">
+        <div class="roam-head owned">OWNED</div>
+        <div class="roam-body roam-drop" data-status="owned">${byStatus('owned').map(riskHTML).join('') || '<div class="empty-hint">Drop here</div>'}</div>
+      </div>
+      <div class="roam-quad">
+        <div class="roam-head accepted">ACCEPTED</div>
+        <div class="roam-body roam-drop" data-status="accepted">${byStatus('accepted').map(riskHTML).join('') || '<div class="empty-hint">Drop here</div>'}</div>
+      </div>
+      <div class="roam-quad">
+        <div class="roam-head mitigated">MITIGATED</div>
+        <div class="roam-body roam-drop" data-status="mitigated">${byStatus('mitigated').map(riskHTML).join('') || '<div class="empty-hint">Drop here</div>'}</div>
+      </div>
+    </div>`;
+  attachRoamHandlers();
+}
+
+function addArtRisk() {
+  state.artRisks.push({ id: uid(), text: '', status: 'unassigned' });
+  save(); renderRiskReview();
+  setTimeout(() => {
+    const view = document.getElementById('view-risk-review');
+    const textareas = view.querySelectorAll('.roam-art textarea');
+    if (textareas.length) textareas[textareas.length - 1].focus();
+  }, 50);
+}
+function updateRiskRoam(source, riskId, val) {
+  const arr = source === 'ART' ? state.artRisks : state.groups[source].risks;
+  const r = arr.find(x => x.id === riskId);
+  if (r) { r.text = val; save(); }
+}
+function delRiskRoam(source, riskId) {
+  if (source === 'ART') state.artRisks = state.artRisks.filter(r => r.id !== riskId);
+  else state.groups[source].risks = state.groups[source].risks.filter(r => r.id !== riskId);
+  save(); renderRiskReview();
+}
+function attachRoamHandlers() {
+  const view = document.getElementById('view-risk-review');
+  view.querySelectorAll('.risk-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      const tag = e.target.tagName;
+      if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'INPUT') { e.preventDefault(); return; }
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', JSON.stringify({ kind: 'roam', riskId: card.dataset.riskId, source: card.dataset.source }));
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+  view.querySelectorAll('.roam-drop').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragging-over'); });
+    zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('dragging-over'); });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragging-over');
+      let payload;
+      try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+      if (payload.kind !== 'roam') return;
+      const arr = payload.source === 'ART' ? state.artRisks : state.groups[payload.source].risks;
+      const r = arr.find(x => x.id === payload.riskId);
+      if (r) { r.status = zone.dataset.status; save(); renderRiskReview(); }
+    });
+  });
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+buildNav();
+buildMenu();
+buildViewShells();
+showView('menu');
+initFirebase();
+</script>
+</body>
+</html>
