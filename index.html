@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PI Planning Simulation – SAFe Training</title>
 
-<!-- Firebase SDK (compat for inline-handler compatibility) -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
@@ -19,19 +19,21 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 12px;
   }
-  .topbar .brand { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .topbar .brand { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .topbar .brand small { opacity: 0.8; font-weight: 400; font-size: 12px; }
-  .conn-status {
-    width: 10px; height: 10px; border-radius: 50%;
-    display: inline-block; background: #999;
-    box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+  .topbar-game-badge {
+    background: rgba(255,255,255,0.18); color: white;
+    padding: 3px 10px; border-radius: 12px; font-size: 12px;
+    font-weight: 600; letter-spacing: 0.5px;
   }
+  .topbar-game-badge.hidden { display: none; }
+  .conn-status { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #999; box-shadow: 0 0 0 2px rgba(255,255,255,0.2); }
   .conn-status.conn-online  { background: #2ecc71; }
   .conn-status.conn-offline { background: #c0392b; }
-  .conn-status.conn-error   { background: #e67e22; animation: pulse 1.2s infinite; }
+  .conn-status.conn-error   { background: #e67e22; animation: connpulse 1.2s infinite; }
   .conn-status.conn-init    { background: #f1c40f; }
   .conn-status.conn-local   { background: #95a5a6; }
-  @keyframes pulse {
+  @keyframes connpulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.6); }
     50%      { box-shadow: 0 0 0 6px rgba(230,126,34,0); }
   }
@@ -56,20 +58,98 @@
   }
   .firebase-banner.hidden { display: none; }
   .firebase-banner strong { color: #b9770e; }
-  .firebase-banner code {
-    background: #fff; padding: 1px 6px; border-radius: 3px;
-    font-family: 'Courier New', monospace; font-size: 12px;
+  .firebase-banner code { background: #fff; padding: 1px 6px; border-radius: 3px; font-family: 'Courier New', monospace; font-size: 12px; }
+
+  /* ---------- LOBBY ---------- */
+  .lobby-hero { text-align: center; max-width: 700px; margin: 30px auto 30px; }
+  .lobby-hero h1 { font-size: 32px; color: #1f5fa8; margin-bottom: 8px; }
+  .lobby-hero p { color: #4a5a6a; font-size: 15px; line-height: 1.6; }
+  .lobby-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    max-width: 900px; margin: 0 auto;
+  }
+  @media (max-width: 700px) { .lobby-grid { grid-template-columns: 1fr; } }
+  .lobby-card {
+    background: white; border-radius: 10px; padding: 30px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    border-top: 5px solid #1f5fa8;
+  }
+  .lobby-card.create { border-top-color: #2ecc71; }
+  .lobby-card h2 { color: #1f5fa8; font-size: 20px; margin-bottom: 8px; }
+  .lobby-card.create h2 { color: #229954; }
+  .lobby-card .lobby-sub { color: #5a6a7a; font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+  .ttl-options {
+    background: #f4f7fb; border-radius: 6px; padding: 12px 14px; margin-bottom: 18px;
+  }
+  .ttl-options-label { font-size: 12px; font-weight: 600; color: #1a2a3a; margin-bottom: 8px; display: block; }
+  .ttl-options label.opt { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; font-size: 13px; color: #2c3e50; }
+  .ttl-options input[type="radio"] { cursor: pointer; }
+  .lobby-input-row {
+    display: flex; gap: 8px; margin-bottom: 14px;
+  }
+  .join-code-input {
+    flex: 1; border: 2px solid #ccd5dd; padding: 10px 12px;
+    border-radius: 6px; font-size: 22px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 4px; text-align: center;
+    font-family: 'Courier New', monospace;
+  }
+  .join-code-input:focus { outline: none; border-color: #1f5fa8; }
+  .btn-large {
+    width: 100%; padding: 12px; font-size: 14px; font-weight: 600;
+    background: #1f5fa8; color: white; border: none; border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn-large:hover { background: #154378; }
+  .btn-large.create { background: #229954; }
+  .btn-large.create:hover { background: #1d7e44; }
+  .btn-large:disabled { background: #95a5a6; cursor: wait; }
+
+  /* ---------- EXPIRED VIEW ---------- */
+  .expired-card {
+    background: white; max-width: 500px; margin: 80px auto;
+    padding: 40px; border-radius: 10px; text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    border-top: 5px solid #c0392b;
+  }
+  .expired-card h2 { color: #c0392b; font-size: 22px; margin-bottom: 10px; }
+  .expired-card p { color: #5a6a7a; line-height: 1.6; margin-bottom: 22px; font-size: 14px; }
+  .expired-card .expired-code {
+    background: #f4f7fb; padding: 8px 14px; border-radius: 6px; display: inline-block;
+    font-family: 'Courier New', monospace; font-weight: 700; color: #1f5fa8;
+    margin: 4px 0 16px;
   }
 
+  /* ---------- GAME INFO BAR (admin only) ---------- */
+  .game-info-bar {
+    background: linear-gradient(135deg, #1f5fa8, #154378); color: white;
+    max-width: 1200px; margin: 0 auto 24px;
+    padding: 14px 18px; border-radius: 8px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  .game-info-bar.hidden { display: none; }
+  .game-info-block { display: flex; flex-direction: column; gap: 2px; padding-right: 14px; }
+  .game-info-block + .game-info-block { border-left: 1px solid rgba(255,255,255,0.25); padding-left: 14px; }
+  .game-info-label { font-size: 10px; opacity: 0.75; text-transform: uppercase; letter-spacing: 1px; }
+  .game-info-value { font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 1px; }
+  .game-info-value.thin { font-family: inherit; font-weight: 600; font-size: 14px; letter-spacing: 0; }
+  .game-info-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .game-info-actions .btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); }
+  .game-info-actions .btn:hover { background: rgba(255,255,255,0.35); }
+  .game-info-actions .btn.danger { background: #c0392b; border-color: #c0392b; }
+  .game-info-actions .btn.danger:hover { background: #962a1f; }
+
+  /* ---------- MENU ---------- */
   .menu-hero { text-align: center; max-width: 800px; margin: 20px auto 24px; }
-  .menu-hero h1 { font-size: 32px; color: #1f5fa8; margin-bottom: 10px; }
-  .menu-hero p { color: #4a5a6a; font-size: 15px; line-height: 1.6; }
+  .menu-hero h1 { font-size: 28px; color: #1f5fa8; margin-bottom: 10px; }
+  .menu-hero p { color: #4a5a6a; font-size: 14px; line-height: 1.6; }
 
   .group-count-selector {
-    background: white; max-width: 600px; margin: 0 auto 28px;
+    background: white; max-width: 640px; margin: 0 auto 28px;
     padding: 16px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
   }
+  .group-count-selector.hidden { display: none; }
   .group-count-selector .selector-label { font-size: 14px; color: #1a2a3a; font-weight: 600; }
   .count-btn {
     background: #f4f7fb; border: 2px solid #ccd5dd; color: #1f5fa8;
@@ -80,10 +160,7 @@
   .count-btn.active { background: #1f5fa8; color: white; border-color: #1f5fa8; }
   .count-hint { width: 100%; text-align: center; font-size: 12px; color: #6c7a89; margin-top: 6px; }
 
-  .menu-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 18px; max-width: 1200px; margin: 0 auto;
-  }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; max-width: 1200px; margin: 0 auto; }
   .menu-card {
     background: white; border-radius: 8px; padding: 22px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-top: 4px solid #1f5fa8;
@@ -94,53 +171,24 @@
   .menu-card h3 { color: #1f5fa8; margin-bottom: 8px; font-size: 17px; }
   .menu-card.risk h3 { color: #c0392b; }
   .menu-card p { font-size: 13px; color: #5a6a7a; line-height: 1.5; }
-  .menu-card .features {
-    margin-top: 12px; font-size: 12px; color: #2c3e50;
-    background: #f4f7fb; padding: 8px 10px; border-radius: 4px;
-  }
+  .menu-card .features { margin-top: 12px; font-size: 12px; color: #2c3e50; background: #f4f7fb; padding: 8px 10px; border-radius: 4px; }
   .menu-card.disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }
-  .menu-card .disabled-badge {
-    position: absolute; top: 12px; right: 12px;
-    background: #6c7a89; color: white;
-    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
-  }
+  .menu-card .disabled-badge { position: absolute; top: 12px; right: 12px; background: #6c7a89; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
 
-  .reset-area {
-    text-align: center; margin: 50px auto 0;
-    max-width: 700px; padding: 20px 16px;
-    border-top: 1px dashed #ccd5dd;
-  }
-  .reset-area .reset-hint {
-    font-size: 12px; color: #6c7a89; margin-top: 8px;
-  }
+  .reset-area { text-align: center; margin: 50px auto 0; max-width: 700px; padding: 20px 16px; border-top: 1px dashed #ccd5dd; }
+  .reset-area.hidden { display: none; }
+  .reset-area .reset-hint { font-size: 12px; color: #6c7a89; margin-top: 8px; }
 
-  .group-header {
-    background: white; padding: 14px 20px; border-radius: 8px;
-    margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    display: flex; justify-content: space-between; align-items: center;
-    flex-wrap: wrap; gap: 12px;
-  }
+  /* ---------- GROUP VIEW ---------- */
+  .group-header { background: white; padding: 14px 20px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
   .group-header h2 { color: #1f5fa8; font-size: 22px; }
   .group-header .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-  .subtabs {
-    background: white; border-radius: 8px 8px 0 0; overflow: hidden;
-    display: flex; border-bottom: 2px solid #1f5fa8;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  }
-  .subtab {
-    flex: 1; padding: 12px; text-align: center; cursor: pointer;
-    background: #f4f7fb; color: #1f5fa8; font-weight: 600; font-size: 14px;
-    border: none; border-right: 1px solid #ddd;
-  }
+  .subtabs { background: white; border-radius: 8px 8px 0 0; overflow: hidden; display: flex; border-bottom: 2px solid #1f5fa8; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .subtab { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: #f4f7fb; color: #1f5fa8; font-weight: 600; font-size: 14px; border: none; border-right: 1px solid #ddd; }
   .subtab:last-child { border-right: none; }
   .subtab:hover { background: #e6eef8; }
   .subtab.active { background: #1f5fa8; color: white; }
-  .subview {
-    background: white; border-radius: 0 0 8px 8px;
-    padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    min-height: 500px;
-  }
+  .subview { background: white; border-radius: 0 0 8px 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); min-height: 500px; }
 
   .btn { background: #1f5fa8; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
   .btn:hover { background: #154378; }
@@ -152,12 +200,7 @@
   .team-board-wrap { overflow-x: auto; padding-bottom: 8px; }
   .team-board { display: grid; grid-template-columns: repeat(3, minmax(300px, 1fr)); gap: 12px; min-width: 960px; }
   .col { background: #fafbfd; border: 1px solid #e0e6ed; border-radius: 6px; display: flex; flex-direction: column; min-height: 600px; }
-  .col-head {
-    background: #1f5fa8; color: white; padding: 10px 14px;
-    border-radius: 6px 6px 0 0;
-    display: flex; justify-content: space-between; align-items: center;
-    font-weight: 600; font-size: 14px;
-  }
+  .col-head { background: #1f5fa8; color: white; padding: 10px 14px; border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; }
   .col-head .dots { letter-spacing: 6px; opacity: 0.6; font-size: 10px; }
   .col-body { padding: 10px; flex: 1; overflow-y: auto; min-height: 350px; }
   .col-body.dragging-over { background: #e8f1fb; outline: 2px dashed #1f5fa8; }
@@ -167,10 +210,7 @@
   .iter-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .iter-row label { color: #555; font-weight: 600; }
   .iter-row input { width: 60px; border: 1px solid #ccc; padding: 4px 6px; border-radius: 3px; font-size: 12px; text-align: center; }
-  .iter-row .load-value {
-    font-weight: 700; padding: 2px 8px; border-radius: 3px;
-    background: #27ae60; color: white; min-width: 36px; text-align: center;
-  }
+  .iter-row .load-value { font-weight: 700; padding: 2px 8px; border-radius: 3px; background: #27ae60; color: white; min-width: 36px; text-align: center; }
   .iter-row .load-value.warn { background: #f39c12; }
   .iter-row .load-value.over { background: #c0392b; }
   .capacity-bar { height: 8px; background: #e0e6ed; border-radius: 4px; overflow: hidden; margin-top: 4px; }
@@ -185,13 +225,10 @@
   .feature-block.feat-1 .feature-title { background: #2874a6; }
   .feature-block.feat-2 .feature-title { background: #117a65; }
 
-  .story-card {
-    background: #fffbe6; border: 1px solid #e6d77a;
-    border-radius: 4px; padding: 8px 10px; margin-bottom: 6px;
-    cursor: grab; font-size: 12px; position: relative;
-  }
+  .story-card { background: #fffbe6; border: 1px solid #e6d77a; border-radius: 4px; padding: 8px 10px; margin-bottom: 6px; cursor: grab; font-size: 12px; position: relative; }
   .story-card:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
   .story-card.enabler { background: #e8f4fd; border-color: #7fb6e0; }
+  .story-card.custom-story { background: #f5eef8; border-color: #c39bd3; }
   .story-card[draggable="true"]:active { cursor: grabbing; }
   .story-card.dragging { opacity: 0.4; }
   .story-card.f-1 { border-left: 4px solid #3498db; }
@@ -201,22 +238,19 @@
   .story-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; font-size: 10px; color: #666; flex-wrap: wrap; }
   .story-tag { background: #34495e; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; }
   .story-tag.enabler { background: #2980b9; }
+  .story-tag.custom { background: #8e44ad; }
   .feat-pill { font-size: 10px; padding: 1px 6px; border-radius: 3px; color: white; font-weight: 600; }
   .feat-pill.f-1 { background: #2874a6; }
   .feat-pill.f-2 { background: #117a65; }
 
-  .size-badge {
-    position: absolute; top: 6px; right: 6px;
-    background: #1f5fa8; color: white;
-    width: 28px; height: 28px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: bold; font-size: 12px; cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2); user-select: none;
-  }
+  .custom-del { background: none; border: none; color: #c0392b; cursor: pointer; font-weight: bold; font-size: 14px; padding: 0 4px; margin-left: auto; line-height: 1; }
+  .custom-del:hover { color: #962a1f; }
+
+  .size-badge { position: absolute; top: 6px; right: 6px; background: #1f5fa8; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); user-select: none; }
   .size-badge.unsized { background: #c0392b; animation: pulseBadge 2s infinite; }
   @keyframes pulseBadge {
     0%, 100% { box-shadow: 0 1px 3px rgba(192,57,43,0.4); }
-    50% { box-shadow: 0 1px 8px rgba(192,57,43,0.8); }
+    50%      { box-shadow: 0 1px 8px rgba(192,57,43,0.8); }
   }
   .size-badge:hover { transform: scale(1.1); }
 
@@ -224,44 +258,32 @@
   .story-card.expanded .story-desc { display: block; }
   .empty-hint { color: #aaa; font-size: 12px; text-align: center; padding: 24px 10px; font-style: italic; }
 
-  .size-picker {
-    position: fixed; z-index: 9999;
-    background: white; border: 1px solid #ddd; border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 12px; width: 220px;
-  }
+  .add-story-zone { margin-top: 4px; margin-bottom: 4px; }
+  .add-story-btn { width: 100%; background: rgba(255,255,255,0.6); border: 1px dashed #b8c5d4; color: #1f5fa8; padding: 5px; border-radius: 3px; font-size: 11px; cursor: pointer; font-weight: 600; }
+  .add-story-btn:hover { background: white; border-color: #1f5fa8; }
+  .add-story-form { display: none; gap: 4px; margin-top: 4px; padding: 8px; background: white; border: 1px solid #1f5fa8; border-radius: 4px; flex-wrap: wrap; align-items: center; }
+  .add-story-form.open { display: flex; }
+  .add-story-form input.story-title-input { flex: 1; min-width: 140px; border: 1px solid #ccc; padding: 5px 7px; border-radius: 3px; font-size: 12px; }
+  .add-story-form select { border: 1px solid #ccc; padding: 5px; border-radius: 3px; font-size: 12px; background: white; }
+  .add-story-form button { padding: 5px 10px; font-size: 11px; }
+
+  .size-picker { position: fixed; z-index: 9999; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 12px; width: 220px; }
   .size-picker.hidden { display: none; }
   .size-picker-title { font-size: 13px; font-weight: 700; color: #1f5fa8; margin-bottom: 4px; text-align: center; }
   .size-picker-sub { font-size: 11px; color: #777; margin-bottom: 8px; text-align: center; }
   .size-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px; }
-  .size-buttons button {
-    background: #f4f7fb; border: 1px solid #ccc; padding: 8px;
-    border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 14px;
-  }
+  .size-buttons button { background: #f4f7fb; border: 1px solid #ccc; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 14px; }
   .size-buttons button:hover { background: #1f5fa8; color: white; border-color: #1f5fa8; }
   .size-buttons button.current { background: #1f5fa8; color: white; border-color: #1f5fa8; }
-  .size-clear {
-    width: 100%; background: #fdedec; border: 1px solid #e6b0aa;
-    color: #c0392b; padding: 6px; border-radius: 4px; cursor: pointer;
-    font-size: 12px; font-weight: 600;
-  }
+  .size-clear { width: 100%; background: #fdedec; border: 1px solid #e6b0aa; color: #c0392b; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
   .size-clear:hover { background: #fadbd8; }
 
-  .toast {
-    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-    background: #c0392b; color: white; padding: 12px 20px; border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3); z-index: 9999;
-    font-size: 14px; font-weight: 500; animation: slideUp 0.25s ease-out;
-  }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #c0392b; color: white; padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); z-index: 9999; font-size: 14px; font-weight: 500; animation: slideUp 0.25s ease-out; }
   .toast.success { background: #27ae60; }
   @keyframes slideUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
   .obj-section { margin-bottom: 20px; }
-  .obj-section-title {
-    font-size: 14px; font-weight: 600; color: #1f5fa8;
-    padding: 8px 12px; background: #f4f7fb; border-radius: 4px;
-    border-left: 4px solid #1f5fa8; margin-bottom: 8px;
-    display: flex; justify-content: space-between; align-items: center;
-  }
+  .obj-section-title { font-size: 14px; font-weight: 600; color: #1f5fa8; padding: 8px 12px; background: #f4f7fb; border-radius: 4px; border-left: 4px solid #1f5fa8; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .obj-section.uncommitted .obj-section-title { color: #b9770e; border-left-color: #f39c12; background: #fef5e7; }
   .pi-obj-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .pi-obj-table th { background: #1f5fa8; color: white; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 12px; }
@@ -273,28 +295,15 @@
   .pi-obj-table input.obj-text { width: 100%; border: 1px solid #ddd; padding: 6px 8px; font-size: 13px; border-radius: 3px; font-family: inherit; }
   .pi-obj-table input.obj-text:focus { outline: none; border-color: #1f5fa8; box-shadow: 0 0 0 2px rgba(31,95,168,0.15); }
   .pi-obj-table input[type=number] { width: 56px; border: 1px solid #ddd; padding: 5px 4px; font-size: 13px; border-radius: 3px; text-align: center; }
-  .add-obj-btn {
-    margin-top: 6px; background: white; border: 1.5px dashed #1f5fa8;
-    color: #1f5fa8; padding: 7px; border-radius: 4px; cursor: pointer;
-    font-size: 12px; width: 100%; font-weight: 600;
-  }
+  .add-obj-btn { margin-top: 6px; background: white; border: 1.5px dashed #1f5fa8; color: #1f5fa8; padding: 7px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; font-weight: 600; }
   .obj-section.uncommitted .add-obj-btn { border-color: #f39c12; color: #b9770e; }
   .add-obj-btn:hover { background: #f4f7fb; }
   .bv-help { font-size: 11px; color: #777; margin-top: 6px; padding: 8px 12px; background: #f9fbfd; border-radius: 3px; line-height: 1.5; }
 
   .risks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .risk-card {
-    background: #fdedec; border: 1px solid #e6b0aa;
-    border-left: 5px solid #c0392b;
-    padding: 12px; padding-bottom: 28px; border-radius: 4px;
-    font-size: 13px; cursor: grab; position: relative; min-height: 90px;
-  }
+  .risk-card { background: #fdedec; border: 1px solid #e6b0aa; border-left: 5px solid #c0392b; padding: 12px; padding-bottom: 28px; border-radius: 4px; font-size: 13px; cursor: grab; position: relative; min-height: 90px; }
   .risk-card.dragging { opacity: 0.4; }
-  .risk-card textarea {
-    width: 100%; border: 1px solid #e6b0aa; padding: 6px; min-height: 60px;
-    border-radius: 3px; font-size: 13px; font-family: inherit; resize: vertical;
-    background: white;
-  }
+  .risk-card textarea { width: 100%; border: 1px solid #e6b0aa; padding: 6px; min-height: 60px; border-radius: 3px; font-size: 13px; font-family: inherit; resize: vertical; background: white; }
   .risk-card .del-btn { position: absolute; top: 4px; right: 6px; background: none; border: none; color: #999; cursor: pointer; font-size: 18px; line-height: 1; }
   .risk-card .del-btn:hover { color: #c0392b; }
   .risk-card .roam-tag { position: absolute; bottom: 6px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 3px; color: white; font-weight: 600; }
@@ -302,12 +311,7 @@
   .roam-tag.owned { background: #2980b9; }
   .roam-tag.accepted { background: #f39c12; }
   .roam-tag.mitigated { background: #16a085; }
-  .add-risk-btn {
-    background: white; border: 2px dashed #c0392b; color: #c0392b;
-    padding: 10px; border-radius: 4px; cursor: pointer; font-size: 13px;
-    font-weight: 600; min-height: 90px;
-    display: flex; align-items: center; justify-content: center;
-  }
+  .add-risk-btn { background: white; border: 2px dashed #c0392b; color: #c0392b; padding: 10px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; min-height: 90px; display: flex; align-items: center; justify-content: center; }
   .add-risk-btn:hover { background: #fef5f4; }
 
   .roam-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; min-height: 70vh; }
@@ -333,23 +337,72 @@
   <div class="brand">
     PI Planning Simulation <small>SAFe Training Lab</small>
     <span id="connStatus" class="conn-status conn-init" title="Connecting..."></span>
+    <span id="topbarGameBadge" class="topbar-game-badge hidden">Game: <span id="topbarGameCode">--</span></span>
   </div>
   <div class="nav-links" id="navLinks"></div>
 </div>
 
-<div class="view active" id="view-menu">
+<!-- LOBBY (no game in URL) -->
+<div class="view active" id="view-lobby">
   <div id="firebaseBanner" class="firebase-banner hidden">
-    <strong>⚠ Firebase not configured.</strong> The app is running in <strong>local mode</strong> — your changes won't sync to other teams.
-    To enable multi-team collaboration, paste your Firebase config into the HTML at the marker <code>FIREBASE_CONFIG</code>.
+    <strong>⚠ Firebase not configured.</strong> The app is in <strong>local mode</strong> — multi-team collaboration won't work.
+    Paste your Firebase config into the HTML at <code>FIREBASE_CONFIG</code>.
   </div>
+
+  <div class="lobby-hero">
+    <h1>PI Planning Simulation</h1>
+    <p>Start a new training game or join one with a code shared by your trainer.</p>
+  </div>
+
+  <div class="lobby-grid">
+    <div class="lobby-card create">
+      <h2>+ Create New Game</h2>
+      <div class="lobby-sub">Generates a 4-letter code that you'll share with your team. You become the game admin.</div>
+      <div class="ttl-options">
+        <span class="ttl-options-label">Auto-expire after last activity:</span>
+        <label class="opt"><input type="radio" name="ttl" value="1"> 1 day</label>
+        <label class="opt"><input type="radio" name="ttl" value="3" checked> 3 days (recommended)</label>
+        <label class="opt"><input type="radio" name="ttl" value="7"> 7 days</label>
+        <label class="opt"><input type="radio" name="ttl" value="0"> Never (manual delete only)</label>
+      </div>
+      <button class="btn-large create" id="createGameBtn" onclick="createGameClicked()">Create Game</button>
+    </div>
+    <div class="lobby-card">
+      <h2>Join Existing Game</h2>
+      <div class="lobby-sub">Enter the 4-letter code your trainer gave you. (You can also just open the link they shared.)</div>
+      <div class="lobby-input-row">
+        <input type="text" class="join-code-input" id="joinCodeInput" maxlength="4" placeholder="TRYV" oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <button class="btn-large" id="joinGameBtn" onclick="joinFromInputClicked()">Join Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPIRED -->
+<div class="view" id="view-expired">
+  <div class="expired-card">
+    <h2>This game has ended</h2>
+    <p>The game you're trying to open no longer exists. It may have expired automatically, or the trainer ended it.</p>
+    <div class="expired-code" id="expiredCode">--</div>
+    <p style="font-size:13px;">Start a new game from the lobby.</p>
+    <button class="btn-large create" onclick="goToLobby()">Back to Lobby</button>
+  </div>
+</div>
+
+<!-- MAIN MENU (in-game) -->
+<div class="view" id="view-menu">
+
+  <!-- Admin-only game info bar -->
+  <div id="gameInfoBar" class="game-info-bar hidden"></div>
 
   <div class="menu-hero">
     <h1>Welcome to the PI Planning Simulation</h1>
-    <p>This interactive lab simulates a SAFe ART PI Planning event. Each team plans two iterations from a feature backlog, defines PI Objectives with Business Value, and identifies risks. The ART then ROAMs the risks together.</p>
+    <p>Each team plans two iterations from a feature backlog, defines PI Objectives with Business Value, and identifies risks. The ART then ROAMs the risks together.</p>
   </div>
 
   <div class="group-count-selector" id="groupCountSelector">
     <span class="selector-label">Number of teams:</span>
+    <button class="count-btn" data-n="1">1</button>
     <button class="count-btn" data-n="2">2</button>
     <button class="count-btn" data-n="3">3</button>
     <button class="count-btn" data-n="4">4</button>
@@ -359,9 +412,9 @@
 
   <div class="menu-grid" id="menuGrid"></div>
 
-  <div class="reset-area">
-    <button class="btn danger" onclick="resetGame()">⟲ Reset Game (all teams)</button>
-    <p class="reset-hint">Wipes all stories, objectives, risks, and capacities for everyone in this session. Use at the start of a new training run.</p>
+  <div class="reset-area" id="resetArea">
+    <button class="btn danger" onclick="resetGame()">⟲ Reset Game (clear all teams' data)</button>
+    <p class="reset-hint">Wipes stories, objectives, risks, and capacities for everyone. Use at the start of a new training run. Game code stays the same.</p>
   </div>
 </div>
 
@@ -386,7 +439,6 @@
 <script>
 /* ============================================================
    FIREBASE CONFIG  ← PASTE YOUR CONFIG HERE
-   Get it from: Firebase Console → Project Settings → Your Apps → Web
    ============================================================ */
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8iLB6DOMZET9RqPm2_hhr1rdiiXZ1GlA",
@@ -396,8 +448,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "231826286543",
   appId:             "1:231826286543:web:63275c213121efe62e54ba"
 };
-const FIREBASE_CONFIGURED =
-  FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
+const FIREBASE_CONFIGURED = FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
 
 /* ============================================================
    FEATURE LIBRARY  (F1..F10)
@@ -460,6 +511,22 @@ const FEATURES = {
       desc:'As a book purchaser\nI can access saved credit card information\nSo that I can retrieve what I saved when making previous purchases' },
     { id:'F3-S8', title:'Access past purchases',         size:5,    type:'User Story',
       desc:'As a book purchaser\nI can access past purchases\nSo that I can re-order the same items again' }
+  ]},
+  F4: { id:'F4', name:'Feature #4: Shipping Method Selection', stories:[
+    { id:'F4-S1', title:'Available shipping options', size:null, type:'User Story',
+      desc:'As a book purchaser\nI can see which shipping options are available for this order\nSo that, based on my experience with shipping options, I can more quickly select my shipping method for this order' },
+    { id:'F4-S2', title:'Shipping prices',            size:null, type:'User Story',
+      desc:'As a book purchaser\nI can see the price for each shipping method for my current order\nSo that I can better select a shipping method based on price' },
+    { id:'F4-S3', title:'Delivery date',              size:8,    type:'User Story',
+      desc:'As a book purchaser\nI can see the delivery date for each shipping method for my current order\nSo that I can better select a shipping method based the delivery date without having to consider holidays, cutoff times, etc.' },
+    { id:'F4-S4', title:'Shipping preferences',       size:3,    type:'User Story',
+      desc:'As a book purchaser\nI can define my shipping preferences\nSo that I do not have to enter my information each time I purchase books' },
+    { id:'F4-S5', title:'Calculate shipping costs',   size:8,    type:'Enabler',
+      desc:'ENABLER (FUNCTIONAL SPIKE):\nDetermine how to calculate the shipping costs using UPS and FedEx web services APIs' },
+    { id:'F4-S6', title:'Upgrade Eclipse',            size:3,    type:'Enabler',
+      desc:'ENABLER (INFRASTRUCTURE):\nUpgrade Eclipse so that we can take advantage of the enhanced stability' },
+    { id:'F4-S7', title:'See delivery speed',         size:2,    type:'User Story',
+      desc:'As a book purchaser\nI can see the delivery speed for each shipping method for my current order\nSo that I can better select a shipping method based on speed' }
   ]},
   F5: { id:'F5', name:'Feature #5: Profile Management', stories:[
     { id:'F5-S1',  title:'Create user profile',         size:null, type:'User Story',
@@ -525,7 +592,7 @@ const FEATURES = {
     { id:'F8-S5', title:'A/B test UX browsing models', size:5, type:'Enabler',
       desc:'EXPLORATION ENABLER:\nA/B test different UX models for browsing: leftside navigation; left-side and current selection criteria in the top, etc.' },
     { id:'F8-S6', title:'Browse by sales',             size:8, type:'User Story',
-      desc:'As a book browser\nI can browse books by the number of copies sold over multiple time periods (e.g., today\u2019s best seller, this week\u2019s, this month\u2019s, etc.)\nSo that I can find the trendiest books purchased by geeks like me' },
+      desc:'As a book browser\nI can browse books by the number of copies sold over multiple time periods\nSo that I can find the trendiest books purchased by geeks like me' },
     { id:'F8-S7', title:'Browse by genre',             size:3, type:'User Story',
       desc:'As a book browser\nI can browse a list of books for the genre I select with a clear indication of which are the most highly rated by other users\nSo that I can locate books which have received positive book purchaser reviews' }
   ]},
@@ -568,17 +635,29 @@ const FEATURES = {
 };
 
 const GROUPS = [
-  { id:'G1', name:'Group 1 – Search & Cart',         shortName:'Group 1', featureIds:['F1','F2']  },
-  { id:'G2', name:'Group 2 – Cart & Payments',       shortName:'Group 2', featureIds:['F2','F3']  },
-  { id:'G3', name:'Group 3 – Profile & Book Detail', shortName:'Group 3', featureIds:['F5','F6']  },
-  { id:'G4', name:'Group 4 – Sorting & Browsing',    shortName:'Group 4', featureIds:['F7','F8']  },
-  { id:'G5', name:'Group 5 – Rating & Commenting',   shortName:'Group 5', featureIds:['F9','F10'] }
+  { id:'G1', name:'Group 1 – Search & Cart',           shortName:'Group 1', featureIds:['F1','F2']  },
+  { id:'G2', name:'Group 2 – Payments & Shipping',     shortName:'Group 2', featureIds:['F3','F4']  },
+  { id:'G3', name:'Group 3 – Profile & Book Detail',   shortName:'Group 3', featureIds:['F5','F6']  },
+  { id:'G4', name:'Group 4 – Sorting & Browsing',      shortName:'Group 4', featureIds:['F7','F8']  },
+  { id:'G5', name:'Group 5 – Rating & Commenting',     shortName:'Group 5', featureIds:['F9','F10'] }
 ];
 
 /* ============================================================
-   STATE  (local cache + Firestore sync when configured)
+   STATE + GAME META
    ============================================================ */
-const STORAGE_KEY = 'pi-planning-sim-v5';
+const LOCAL_PREFIX = 'pi-planning-sim-v7';
+const ADMIN_MAP_KEY = 'pi-planning-admin-secrets-v7';
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O,0,I,1,L
+const CODE_LEN = 4;
+
+let state;          // current game's data (groups, artRisks, enabledGroupCount, activeSubTab)
+let currentGame = null;  // { code, ttlDays, isAdmin, adminSecret, expiresAtMs }
+let db = null;
+let gameDocRef = null;
+let unsubscribeListener = null;
+let isActivelyEditing = false;
+let pendingRemoteUpdate = false;
+let countdownTimer = null;
 
 function defaultGroupState(g) {
   const stories = {};
@@ -589,25 +668,21 @@ function defaultGroupState(g) {
       order.backlog.push(s.id);
     });
   });
-  return { stories, order, iter1Capacity:30, iter2Capacity:30, objectives:[], risks:[] };
+  return { stories, order, customStories: [], iter1Capacity:30, iter2Capacity:30, objectives:[], risks:[] };
 }
-function defaultState() {
+function defaultGameState() {
   const s = { groups:{}, artRisks:[], activeSubTab:{}, enabledGroupCount: 5 };
   GROUPS.forEach(g => { s.groups[g.id] = defaultGroupState(g); s.activeSubTab[g.id] = 'board'; });
   return s;
 }
 function uid() { return 'x' + Math.random().toString(36).slice(2,9); }
 
-let state;
-try {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  state = raw ? JSON.parse(raw) : defaultState();
+function ensureStateStructure() {
+  if (!state) state = defaultGameState();
   if (!state.activeSubTab) state.activeSubTab = {};
   if (typeof state.enabledGroupCount !== 'number') state.enabledGroupCount = 5;
-  ensureStateStructure();
-} catch (e) { state = defaultState(); }
+  if (!Array.isArray(state.artRisks)) state.artRisks = [];
 
-function ensureStateStructure() {
   GROUPS.forEach(g => {
     if (!state.groups[g.id]) state.groups[g.id] = defaultGroupState(g);
     if (!state.activeSubTab[g.id]) state.activeSubTab[g.id] = 'board';
@@ -615,6 +690,8 @@ function ensureStateStructure() {
     if (!state.groups[g.id].objectives) state.groups[g.id].objectives = [];
     if (!state.groups[g.id].risks) state.groups[g.id].risks = [];
     if (!state.groups[g.id].stories) state.groups[g.id].stories = {};
+    if (!Array.isArray(state.groups[g.id].customStories)) state.groups[g.id].customStories = [];
+
     g.featureIds.forEach(fid => {
       FEATURES[fid].stories.forEach(s => {
         if (!state.groups[g.id].stories[s.id]) state.groups[g.id].stories[s.id] = { location:'backlog', size:s.size };
@@ -623,19 +700,38 @@ function ensureStateStructure() {
         if (!inAny) ord[(state.groups[g.id].stories[s.id].location || 'backlog')].push(s.id);
       });
     });
+    state.groups[g.id].customStories.forEach(cs => {
+      if (!state.groups[g.id].stories[cs.id]) state.groups[g.id].stories[cs.id] = { location:'backlog', size:null };
+      const ord = state.groups[g.id].order;
+      const inAny = ord.backlog.includes(cs.id) || ord.iter1.includes(cs.id) || ord.iter2.includes(cs.id);
+      if (!inAny) ord[(state.groups[g.id].stories[cs.id].location || 'backlog')].push(cs.id);
+    });
   });
-  if (!Array.isArray(state.artRisks)) state.artRisks = [];
 }
 
 /* ============================================================
-   FIREBASE SYNC LAYER
+   ADMIN SECRET STORAGE
    ============================================================ */
-let db = null;
-let gameDocRef = null;
-let lastAppliedHash = null;
-let isActivelyEditing = false;
-let pendingRemoteState = null;
+function loadAdminMap() {
+  try { return JSON.parse(localStorage.getItem(ADMIN_MAP_KEY) || '{}'); } catch(e) { return {}; }
+}
+function rememberAdmin(code, secret) {
+  const map = loadAdminMap();
+  map[code] = secret;
+  try { localStorage.setItem(ADMIN_MAP_KEY, JSON.stringify(map)); } catch(e){}
+}
+function forgetAdmin(code) {
+  const map = loadAdminMap();
+  delete map[code];
+  try { localStorage.setItem(ADMIN_MAP_KEY, JSON.stringify(map)); } catch(e){}
+}
+function getStoredAdminSecret(code) {
+  return loadAdminMap()[code] || null;
+}
 
+/* ============================================================
+   FIREBASE INIT (no auto game listener)
+   ============================================================ */
 function setConnectionStatus(status) {
   const el = document.getElementById('connStatus');
   if (!el) return;
@@ -653,124 +749,443 @@ function initFirebase() {
   if (!FIREBASE_CONFIGURED) {
     document.getElementById('firebaseBanner').classList.remove('hidden');
     setConnectionStatus('local');
-    return;
+    return false;
   }
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
-    gameDocRef = db.collection('pi-planning').doc('main');
-
-    gameDocRef.onSnapshot({ includeMetadataChanges: false }, (snap) => {
-      setConnectionStatus('online');
-      if (snap.metadata.hasPendingWrites) return;     // our own un-confirmed write
-      if (!snap.exists) {                              // first run — push our default state
-        gameDocRef.set(serializeState()).catch(e => console.error(e));
-        return;
-      }
-      const remote = snap.data();
-      const hash = JSON.stringify({ g: remote.groups, a: remote.artRisks, n: remote.enabledGroupCount });
-      if (hash === lastAppliedHash) return;            // no real change
-      lastAppliedHash = hash;
-
-      if (isActivelyEditing) {
-        pendingRemoteState = remote;                   // defer until user blurs
-        return;
-      }
-      applyRemoteState(remote);
-    }, (err) => {
-      console.error('Firestore listener error:', err);
-      setConnectionStatus('error');
-      showToast('Sync error: ' + (err.message || 'check Firebase config / rules'), false);
-    });
-
+    setConnectionStatus('init');
     window.addEventListener('online',  () => setConnectionStatus('online'));
     window.addEventListener('offline', () => setConnectionStatus('offline'));
+    return true;
   } catch (e) {
     console.error('Firebase init failed:', e);
     setConnectionStatus('error');
     showToast('Firebase init failed — check config');
+    return false;
   }
 }
 
-function serializeState() {
-  return {
-    groups: state.groups,
-    artRisks: state.artRisks,
-    enabledGroupCount: state.enabledGroupCount,
-    updatedAt: Date.now()
+/* ============================================================
+   CODE GENERATION + URL HELPERS
+   ============================================================ */
+function generateCode() {
+  let c = '';
+  for (let i = 0; i < CODE_LEN; i++) {
+    c += CODE_ALPHABET.charAt(Math.floor(Math.random() * CODE_ALPHABET.length));
+  }
+  return c;
+}
+function getURLParams() {
+  const p = new URLSearchParams(window.location.search);
+  return { game: (p.get('game') || '').toUpperCase().trim(), admin: p.get('admin') };
+}
+function setBrowserURL(code, includeAdminSecret) {
+  let url = window.location.pathname;
+  if (code) {
+    url += '?game=' + code;
+    if (includeAdminSecret && currentGame && currentGame.adminSecret) {
+      url += '&admin=' + currentGame.adminSecret;
+    }
+  }
+  history.replaceState(null, '', url);
+}
+function buildShareableURL(includeAdminSecret) {
+  const origin = window.location.origin + window.location.pathname;
+  if (!currentGame || !currentGame.code) return origin;
+  let url = origin + '?game=' + currentGame.code;
+  if (includeAdminSecret && currentGame.adminSecret) {
+    url += '&admin=' + currentGame.adminSecret;
+  }
+  return url;
+}
+
+/* ============================================================
+   LOBBY: CREATE / JOIN / EXPIRED
+   ============================================================ */
+function showLobby() {
+  showOnlyView('view-lobby');
+  document.getElementById('navLinks').innerHTML = '';
+  setTopbarBadge(null);
+  stopCountdown();
+}
+function showOnlyView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
+}
+function setTopbarBadge(code) {
+  const badge = document.getElementById('topbarGameBadge');
+  const codeEl = document.getElementById('topbarGameCode');
+  if (!code) { badge.classList.add('hidden'); return; }
+  codeEl.textContent = code;
+  badge.classList.remove('hidden');
+}
+function goToLobby() {
+  setBrowserURL(null, false);
+  if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+  gameDocRef = null;
+  currentGame = null;
+  state = null;
+  showLobby();
+}
+
+async function createGameClicked() {
+  if (!FIREBASE_CONFIGURED) {
+    showToast('Firebase is not configured — multi-team play is unavailable.');
+    return;
+  }
+  const ttlValue = (document.querySelector('input[name="ttl"]:checked') || {}).value || '3';
+  const ttlDays = Number(ttlValue);  // 0 means never
+
+  const btn = document.getElementById('createGameBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+  try {
+    // Pick an unused code (very unlikely collision with 1M+ space)
+    let code, attempts = 0;
+    while (attempts < 8) {
+      code = generateCode();
+      const snap = await db.collection('games').doc(code).get();
+      if (!snap.exists) break;
+      attempts++;
+      code = null;
+    }
+    if (!code) { showToast('Could not allocate a game code. Try again.'); btn.disabled = false; btn.textContent = 'Create Game'; return; }
+
+    const adminSecret = generateCode() + generateCode(); // 8 chars
+    const fresh = defaultGameState();
+    const payload = {
+      code,
+      adminSecret,
+      ttlDays: ttlDays > 0 ? ttlDays : 0,
+      createdAt: Date.now(),
+      groups: fresh.groups,
+      artRisks: fresh.artRisks,
+      enabledGroupCount: fresh.enabledGroupCount,
+      updatedAt: Date.now()
+    };
+    if (ttlDays > 0) {
+      payload.expiresAt = firebase.firestore.Timestamp.fromMillis(Date.now() + ttlDays * 86400000);
+    }
+
+    await db.collection('games').doc(code).set(payload);
+    rememberAdmin(code, adminSecret);
+    // Redirect to clean URL (no admin in URL bar — secret is in localStorage)
+    window.location.href = window.location.pathname + '?game=' + code;
+  } catch (e) {
+    console.error(e);
+    showToast('Failed to create game: ' + (e.message || 'unknown'));
+    btn.disabled = false;
+    btn.textContent = 'Create Game';
+  }
+}
+
+function joinFromInputClicked() {
+  const code = (document.getElementById('joinCodeInput').value || '').toUpperCase().trim();
+  if (!code || code.length !== CODE_LEN) { showToast('Enter a ' + CODE_LEN + '-letter code.'); return; }
+  window.location.href = window.location.pathname + '?game=' + code;
+}
+
+async function joinGame(code, urlAdminSecret) {
+  if (!FIREBASE_CONFIGURED) {
+    showToast('Firebase is not configured — cannot join games.');
+    showLobby();
+    return;
+  }
+  gameDocRef = db.collection('games').doc(code);
+  let snap;
+  try { snap = await gameDocRef.get(); }
+  catch (e) {
+    console.error(e);
+    setConnectionStatus('error');
+    showToast('Cannot reach game: ' + (e.message || 'check Firestore rules'));
+    showLobby();
+    return;
+  }
+
+  if (!snap.exists) { showExpired(code); return; }
+  const data = snap.data();
+
+  // Determine admin
+  let isAdmin = false;
+  let adminSecret = null;
+  const storedSecret = getStoredAdminSecret(code);
+  if (urlAdminSecret && data.adminSecret === urlAdminSecret) {
+    isAdmin = true;
+    adminSecret = data.adminSecret;
+    rememberAdmin(code, adminSecret);
+  } else if (storedSecret && data.adminSecret === storedSecret) {
+    isAdmin = true;
+    adminSecret = storedSecret;
+  } else if (storedSecret && data.adminSecret !== storedSecret) {
+    forgetAdmin(code); // stale localStorage entry
+  }
+
+  // Always strip admin param from address bar — keeps it private
+  setBrowserURL(code, false);
+
+  currentGame = {
+    code,
+    ttlDays: data.ttlDays || 0,
+    isAdmin,
+    adminSecret,
+    expiresAtMs: (data.expiresAt && data.expiresAt.toMillis) ? data.expiresAt.toMillis() : null
   };
-}
 
-function applyRemoteState(remote) {
-  if (!remote) return;
-  state.groups = remote.groups || state.groups;
-  state.artRisks = Array.isArray(remote.artRisks) ? remote.artRisks : [];
-  state.enabledGroupCount = remote.enabledGroupCount || 5;
+  // Initialize state
+  state = {
+    groups: data.groups || {},
+    artRisks: data.artRisks || [],
+    enabledGroupCount: data.enabledGroupCount || 5,
+    activeSubTab: loadLocalActiveSubTab(code)
+  };
   ensureStateStructure();
-  // Persist local cache
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
-  rerenderActiveView();
-}
 
-function rerenderActiveView() {
+  setConnectionStatus('online');
+  setTopbarBadge(code);
+
+  // Subscribe to live updates
+  unsubscribeListener = gameDocRef.onSnapshot((snap2) => {
+    if (!snap2.exists) {
+      // Game was deleted (TTL or End Now)
+      if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+      showExpired(code);
+      return;
+    }
+    setConnectionStatus('online');
+    const remote = snap2.data();
+    let changed = false;
+
+    GROUPS.forEach(g => {
+      if (!remote.groups || !remote.groups[g.id]) return;
+      if (JSON.stringify(remote.groups[g.id]) !== JSON.stringify(state.groups[g.id])) {
+        state.groups[g.id] = remote.groups[g.id];
+        changed = true;
+      }
+    });
+    if (Array.isArray(remote.artRisks) && JSON.stringify(remote.artRisks) !== JSON.stringify(state.artRisks)) {
+      state.artRisks = remote.artRisks;
+      changed = true;
+    }
+    if (typeof remote.enabledGroupCount === 'number' && remote.enabledGroupCount !== state.enabledGroupCount) {
+      state.enabledGroupCount = remote.enabledGroupCount;
+      changed = true;
+    }
+    if (remote.expiresAt && remote.expiresAt.toMillis) {
+      currentGame.expiresAtMs = remote.expiresAt.toMillis();
+    } else if (!remote.expiresAt) {
+      currentGame.expiresAtMs = null;
+    }
+    if (changed) {
+      ensureStateStructure();
+      saveLocalCache();
+      if (isActivelyEditing) { pendingRemoteUpdate = true; }
+      else { rerenderActiveView(); }
+    } else {
+      // Even if no data change, refresh the expiry display
+      renderGameInfoBar();
+    }
+  }, (err) => {
+    console.error('Firestore listener error:', err);
+    setConnectionStatus('error');
+    showToast('Sync error: ' + (err.message || 'check Firebase rules'), false);
+  });
+
+  // Build UI
   buildNav();
   buildCountSelector();
+  applyAdminVisibility();
   renderMenuGrid();
-  document.querySelectorAll('.view.active').forEach(v => {
-    if (v.id === 'view-menu') return;
-    if (v.id === 'view-risk-review') renderRiskReview();
-    else if (v.id.startsWith('view-group-')) renderGroup(v.id.replace('view-group-', ''));
+  renderGameInfoBar();
+  startCountdown();
+  showOnlyView('view-menu');
+}
+
+function showExpired(code) {
+  document.getElementById('expiredCode').textContent = code;
+  document.getElementById('navLinks').innerHTML = '';
+  setTopbarBadge(null);
+  stopCountdown();
+  showOnlyView('view-expired');
+}
+
+/* ============================================================
+   GAME INFO BAR (admin only)
+   ============================================================ */
+function applyAdminVisibility() {
+  const isAdmin = currentGame && currentGame.isAdmin;
+  document.getElementById('gameInfoBar').classList.toggle('hidden', !isAdmin);
+  document.getElementById('groupCountSelector').classList.toggle('hidden', !isAdmin);
+  document.getElementById('resetArea').classList.toggle('hidden', !isAdmin);
+}
+
+function formatRemainingTime(ms) {
+  if (ms <= 0) return 'expired';
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  const mins  = Math.floor((ms % 3600000) / 60000);
+  if (days >= 1) return days + 'd ' + hours + 'h';
+  if (hours >= 1) return hours + 'h ' + mins + 'm';
+  return mins + 'm';
+}
+
+function renderGameInfoBar() {
+  if (!currentGame || !currentGame.isAdmin) return;
+  const bar = document.getElementById('gameInfoBar');
+  const expiryHtml = currentGame.expiresAtMs
+    ? `<span class="game-info-value thin">${formatRemainingTime(currentGame.expiresAtMs - Date.now())}</span>
+       <span style="font-size:10px;opacity:0.7">(${new Date(currentGame.expiresAtMs).toLocaleString()})</span>`
+    : `<span class="game-info-value thin">Never</span>
+       <span style="font-size:10px;opacity:0.7">(manual delete only)</span>`;
+  bar.innerHTML = `
+    <div class="game-info-block">
+      <span class="game-info-label">Game Code</span>
+      <span class="game-info-value">${currentGame.code}</span>
+    </div>
+    <div class="game-info-block">
+      <span class="game-info-label">Expires</span>
+      ${expiryHtml}
+    </div>
+    <div class="game-info-actions">
+      <button class="btn small" onclick="copyParticipantUrl()">📋 Copy Share URL</button>
+      <button class="btn small" onclick="copyAdminUrl()" title="For your own use across devices">🔑 Copy Admin Link</button>
+      <button class="btn small danger" onclick="endGameNow()">⏻ End Game Now</button>
+    </div>`;
+}
+
+function startCountdown() {
+  stopCountdown();
+  countdownTimer = setInterval(() => {
+    if (currentGame && currentGame.isAdmin) renderGameInfoBar();
+  }, 60000); // 1 min refresh
+}
+function stopCountdown() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; } }
+
+async function copyToClipboard(text, successMsg) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(successMsg || 'Copied!', true);
+  } catch (e) {
+    // Fallback: show a prompt
+    prompt('Copy this URL:', text);
+  }
+}
+function copyParticipantUrl() {
+  copyToClipboard(buildShareableURL(false), 'Share URL copied — paste into Zoom/Teams.');
+}
+function copyAdminUrl() {
+  if (!currentGame.adminSecret) return;
+  copyToClipboard(buildShareableURL(true), 'Admin link copied. Keep this private!');
+}
+
+async function endGameNow() {
+  if (!currentGame || !currentGame.isAdmin) return;
+  if (!confirm(`End game "${currentGame.code}" now?\n\nThis deletes the game permanently. Anyone with the URL will see "Game has ended". This cannot be undone.`)) return;
+  try {
+    if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+    await gameDocRef.delete();
+    forgetAdmin(currentGame.code);
+    clearLocalCache(currentGame.code);
+    const ended = currentGame.code;
+    currentGame = null; state = null;
+    showExpired(ended);
+  } catch (e) {
+    showToast('Failed to delete: ' + (e.message || 'unknown'));
+  }
+}
+
+/* ============================================================
+   LOCAL CACHE (per-game)
+   ============================================================ */
+function gameCacheKey(code) { return LOCAL_PREFIX + '-' + code; }
+function activeSubTabKey(code) { return LOCAL_PREFIX + '-tabs-' + code; }
+function saveLocalCache() {
+  if (!currentGame || !currentGame.code) return;
+  try { localStorage.setItem(gameCacheKey(currentGame.code), JSON.stringify({ groups: state.groups, artRisks: state.artRisks, enabledGroupCount: state.enabledGroupCount })); } catch(e){}
+  try { localStorage.setItem(activeSubTabKey(currentGame.code), JSON.stringify(state.activeSubTab || {})); } catch(e){}
+}
+function loadLocalActiveSubTab(code) {
+  try { return JSON.parse(localStorage.getItem(activeSubTabKey(code)) || '{}'); } catch(e) { return {}; }
+}
+function clearLocalCache(code) {
+  try { localStorage.removeItem(gameCacheKey(code)); } catch(e){}
+  try { localStorage.removeItem(activeSubTabKey(code)); } catch(e){}
+}
+
+/* ============================================================
+   SAVE (field-scoped, sliding TTL)
+   ============================================================ */
+function save(scope) {
+  saveLocalCache();
+  if (!gameDocRef || !currentGame) return;
+  if (!scope) scope = { type: 'full' };
+
+  const update = { updatedAt: Date.now() };
+  if (currentGame.ttlDays > 0) {
+    update.expiresAt = firebase.firestore.Timestamp.fromMillis(Date.now() + currentGame.ttlDays * 86400000);
+  }
+
+  if (scope.type === 'full') {
+    const payload = {
+      code: currentGame.code,
+      adminSecret: currentGame.adminSecret, // preserve
+      ttlDays: currentGame.ttlDays,
+      groups: state.groups,
+      artRisks: state.artRisks,
+      enabledGroupCount: state.enabledGroupCount,
+      updatedAt: Date.now()
+    };
+    if (update.expiresAt) payload.expiresAt = update.expiresAt;
+    gameDocRef.set(payload, { merge: true }).catch(err => { console.error(err); setConnectionStatus('error'); });
+    return;
+  }
+
+  if (scope.type === 'group')      update['groups.' + scope.id] = state.groups[scope.id];
+  else if (scope.type === 'art')   update.artRisks = state.artRisks;
+  else if (scope.type === 'count') update.enabledGroupCount = state.enabledGroupCount;
+
+  gameDocRef.update(update).catch(err => {
+    if (err && (err.code === 'not-found' || /No document/.test(err.message || ''))) {
+      // Game was deleted — show expired
+      if (unsubscribeListener) { unsubscribeListener(); unsubscribeListener = null; }
+      showExpired(currentGame.code);
+      return;
+    }
+    console.error('Sync error:', err);
+    setConnectionStatus('error');
   });
 }
 
-function save() {
-  // local cache
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
-  // cloud sync
-  if (gameDocRef) {
-    const payload = serializeState();
-    lastAppliedHash = JSON.stringify({ g: payload.groups, a: payload.artRisks, n: payload.enabledGroupCount });
-    gameDocRef.set(payload).catch(err => {
-      console.error('Sync error:', err);
-      setConnectionStatus('error');
-    });
-  }
-}
-
 function resetGame() {
-  const msg = FIREBASE_CONFIGURED
-    ? 'Reset the game for ALL connected teams?\n\nThis will clear all stories, objectives, risks, and capacities for everyone in this session.'
-    : 'Reset this game?\n\nThis will clear all stories, objectives, risks, and capacities.';
-  if (!confirm(msg)) return;
-  const fresh = defaultState();
+  if (!currentGame || !currentGame.isAdmin) return;
+  if (!confirm('Reset all teams\' data?\n\nClears stories, objectives, risks, capacities for everyone in this game. The game code stays the same.')) return;
+  const fresh = defaultGameState();
   state.groups = fresh.groups;
   state.artRisks = fresh.artRisks;
   state.enabledGroupCount = fresh.enabledGroupCount;
   state.activeSubTab = fresh.activeSubTab;
-  save();
+  save({ type: 'full' });
   rerenderActiveView();
   showToast('Game reset for all teams.', true);
 }
 
-// Defer remote updates while user is typing in inputs/textareas
 document.addEventListener('focusin', e => {
   if (e.target.matches('input, textarea')) isActivelyEditing = true;
 });
 document.addEventListener('focusout', e => {
   if (e.target.matches('input, textarea')) {
     isActivelyEditing = false;
-    if (pendingRemoteState) {
-      const r = pendingRemoteState;
-      pendingRemoteState = null;
-      applyRemoteState(r);
-    }
+    if (pendingRemoteUpdate) { pendingRemoteUpdate = false; rerenderActiveView(); }
   }
 });
 
 /* ============================================================
-   HELPERS
+   HELPERS (rendering + lookups)
    ============================================================ */
-function findStoryById(sid) {
+function findStoryMeta(sid, groupId) {
+  if (isCustomStoryId(sid) && groupId) {
+    const cs = state.groups[groupId].customStories?.find(c => c.id === sid);
+    if (cs) return cs;
+  }
   for (const fid in FEATURES) {
     const s = FEATURES[fid].stories.find(x => x.id === sid);
     if (s) return s;
@@ -782,12 +1197,16 @@ function findFeatureCodeForStory(sid, groupId) {
   for (let i = 0; i < g.featureIds.length; i++) {
     if (FEATURES[g.featureIds[i]].stories.find(s => s.id === sid)) return i + 1;
   }
+  const cs = state.groups[groupId].customStories?.find(c => c.id === sid);
+  if (cs) {
+    const idx = g.featureIds.indexOf(cs.featureId);
+    if (idx >= 0) return idx + 1;
+  }
   return 1;
 }
 function isUnsized(v) { return v === null || v === undefined || v === ''; }
-function escHTML(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-}
+function isCustomStoryId(sid) { return sid && (/^F\d+-CS\d+$/.test(sid) || sid.indexOf('C-') === 0); }
+function escHTML(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function escAttr(s) { return escHTML(s); }
 function showToast(msg, success) {
   const t = document.createElement('div');
@@ -818,7 +1237,7 @@ function buildNav() {
     b.dataset.view = it.id;
     if (!it.enabled) {
       b.disabled = true;
-      b.title = 'This team is disabled. Adjust the team count on the Main Menu.';
+      b.title = 'This team is disabled.';
     } else {
       b.onclick = () => showView(it.id);
     }
@@ -840,7 +1259,6 @@ function showView(id) {
   window.scrollTo(0,0);
 }
 
-function buildMenu() { buildCountSelector(); renderMenuGrid(); }
 function buildCountSelector() {
   const sel = document.getElementById('groupCountSelector');
   sel.querySelectorAll('.count-btn').forEach(btn => {
@@ -850,7 +1268,9 @@ function buildCountSelector() {
   });
 }
 function setEnabledGroupCount(n) {
-  state.enabledGroupCount = n; save();
+  if (!currentGame || !currentGame.isAdmin) return;
+  state.enabledGroupCount = n;
+  save({ type: 'count' });
   buildCountSelector(); renderMenuGrid(); buildNav();
 }
 function renderMenuGrid() {
@@ -897,6 +1317,25 @@ function renderView(id) {
   else if (id === 'risk-review') renderRiskReview();
 }
 
+function rerenderActiveView() {
+  // Auto-redirect from disabled groups
+  const activeGroupView = document.querySelector('.view.active[id^="view-group-"]');
+  if (activeGroupView) {
+    const gid = activeGroupView.id.replace('view-group-', '');
+    if (!isGroupEnabled(gid)) { showView('menu'); return; }
+  }
+  buildNav();
+  buildCountSelector();
+  applyAdminVisibility();
+  renderMenuGrid();
+  renderGameInfoBar();
+  document.querySelectorAll('.view.active').forEach(v => {
+    if (v.id === 'view-menu' || v.id === 'view-lobby' || v.id === 'view-expired') return;
+    if (v.id === 'view-risk-review') renderRiskReview();
+    else if (v.id.startsWith('view-group-')) renderGroup(v.id.replace('view-group-', ''));
+  });
+}
+
 /* ============================================================
    GROUP VIEW
    ============================================================ */
@@ -925,9 +1364,8 @@ function renderGroup(groupId) {
   if (tab === 'risks') attachRiskDragHandlers(groupId);
 }
 function setSubTab(groupId, t) {
-  // activeSubTab is local-only (per-user UI state) — don't sync to cloud
   state.activeSubTab[groupId] = t;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  saveLocalCache();
   renderGroup(groupId);
 }
 
@@ -998,16 +1436,39 @@ function renderIterationControls(groupId, iter, load, capacity) {
 function renderBacklogContent(groupId) {
   const g = GROUPS.find(x => x.id === groupId);
   const order = state.groups[groupId].order.backlog;
+  const customStories = state.groups[groupId].customStories || [];
+
   return g.featureIds.map((fid, idx) => {
     const f = FEATURES[fid];
-    const featStoryIds = new Set(f.stories.map(s => s.id));
-    const orderedStories = order.filter(sid => featStoryIds.has(sid)).map(sid => f.stories.find(s => s.id === sid));
+    const predefIds = new Set(f.stories.map(s => s.id));
+    const customIds = new Set(customStories.filter(c => c.featureId === fid).map(c => c.id));
+
+    const orderedAll = order
+      .filter(sid => predefIds.has(sid) || customIds.has(sid))
+      .map(sid => {
+        if (predefIds.has(sid)) return f.stories.find(s => s.id === sid);
+        return customStories.find(c => c.id === sid);
+      })
+      .filter(Boolean);
+
     return `
       <div class="feature-block feat-${idx + 1}">
         <div class="feature-title">${f.name}</div>
-        ${orderedStories.length
-          ? orderedStories.map(s => storyCardHTML(s, groupId, idx + 1)).join('')
+        ${orderedAll.length
+          ? orderedAll.map(s => storyCardHTML(s, groupId, idx + 1)).join('')
           : '<div class="empty-hint" style="padding:8px">All stories planned ✓</div>'}
+        <div class="add-story-zone">
+          <button class="add-story-btn" onclick="showAddStoryForm(this)">+ Add story to this feature</button>
+          <div class="add-story-form">
+            <input type="text" class="story-title-input" placeholder="Story title (required)">
+            <select class="story-type-select">
+              <option value="User Story">User Story</option>
+              <option value="Enabler">Enabler</option>
+            </select>
+            <button class="btn small" onclick="submitAddStory('${groupId}','${fid}',this)">Add</button>
+            <button class="btn small secondary" onclick="cancelAddStory(this)">Cancel</button>
+          </div>
+        </div>
       </div>`;
   }).join('');
 }
@@ -1015,7 +1476,7 @@ function renderBacklogContent(groupId) {
 function renderStoriesInLocation(groupId, location) {
   const order = state.groups[groupId].order[location] || [];
   const cards = order.map(sid => {
-    const s = findStoryById(sid);
+    const s = findStoryMeta(sid, groupId);
     if (!s) return '';
     const featCode = findFeatureCodeForStory(sid, groupId);
     return storyCardHTML(s, groupId, featCode, true);
@@ -1024,25 +1485,87 @@ function renderStoriesInLocation(groupId, location) {
 }
 
 function storyCardHTML(s, groupId, featCode, showFeatPill = false) {
+  const isCustom = isCustomStoryId(s.id);
   const st = state.groups[groupId].stories[s.id];
+  if (!st) return '';
   const sizeDisplay = isUnsized(st.size) ? '?' : st.size;
   const enablerCls = s.type === 'Enabler' ? 'enabler' : '';
+  const customCls = isCustom ? 'custom-story' : '';
   const featLabel = showFeatPill ? `<span class="feat-pill f-${featCode}">F${featCode}</span>` : '';
+  const customTag = isCustom ? `<span class="story-tag custom">Custom</span>` : '';
+  const deleteBtn = isCustom
+    ? `<button class="custom-del" onclick="event.stopPropagation(); delCustomStory('${groupId}','${s.id}')" title="Delete this custom story">×</button>`
+    : '';
+  const desc = s.desc || '';
   return `
-    <div class="story-card f-${featCode} ${enablerCls}" draggable="true"
+    <div class="story-card f-${featCode} ${enablerCls} ${customCls}" draggable="true"
          data-story="${s.id}" data-group="${groupId}"
          onclick="toggleExpand(event, this)">
       <div class="size-badge ${isUnsized(st.size) ? 'unsized' : ''}"
            onclick="showSizePicker('${groupId}','${s.id}', event)"
            title="${isUnsized(st.size) ? 'Click to estimate' : 'Click to update estimate'}">${sizeDisplay}</div>
-      <div class="story-title">${s.title}</div>
+      <div class="story-title">${escHTML(s.title)}</div>
       <div class="story-meta">
         ${featLabel}
         <span class="story-tag ${enablerCls}">${s.type}</span>
         <span>${s.id}</span>
+        ${customTag}
+        ${deleteBtn}
       </div>
-      <div class="story-desc">${escHTML(s.desc).replace(/\n/g, '<br>')}</div>
+      ${desc ? `<div class="story-desc">${escHTML(desc).replace(/\n/g, '<br>')}</div>` : ''}
     </div>`;
+}
+
+function showAddStoryForm(btnEl) {
+  document.querySelectorAll('.add-story-form.open').forEach(f => f.classList.remove('open'));
+  document.querySelectorAll('.add-story-btn').forEach(b => b.style.display = '');
+  const zone = btnEl.closest('.add-story-zone');
+  zone.querySelector('.add-story-btn').style.display = 'none';
+  const form = zone.querySelector('.add-story-form');
+  form.classList.add('open');
+  const input = form.querySelector('.story-title-input');
+  input.value = '';
+  input.focus();
+}
+function cancelAddStory(btnEl) {
+  const zone = btnEl.closest('.add-story-zone');
+  zone.querySelector('.add-story-btn').style.display = '';
+  zone.querySelector('.add-story-form').classList.remove('open');
+}
+function submitAddStory(groupId, fid, btnEl) {
+  const zone = btnEl.closest('.add-story-zone');
+  const titleInput = zone.querySelector('.story-title-input');
+  const typeSelect = zone.querySelector('.story-type-select');
+  const title = titleInput.value.trim();
+  if (!title) { titleInput.focus(); showToast('Enter a story title first.'); return; }
+  const type = typeSelect.value;
+  const gs = state.groups[groupId];
+  // Generate sequential ID like F1-CS1, F1-CS2 (scoped per feature)
+  let maxN = 0;
+  gs.customStories.forEach(c => {
+    if (c.featureId === fid) {
+      const m = (c.id || '').match(/^F\d+-CS(\d+)$/);
+      if (m) { const n = parseInt(m[1], 10); if (n > maxN) maxN = n; }
+    }
+  });
+  const storyId = fid + '-CS' + (maxN + 1);
+  gs.customStories.push({ id: storyId, title, type, desc: '', featureId: fid });
+  gs.stories[storyId] = { location: 'backlog', size: null };
+  gs.order.backlog.push(storyId);
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
+}
+function delCustomStory(groupId, storyId) {
+  if (!confirm('Delete this custom story?')) return;
+  const gs = state.groups[groupId];
+  gs.customStories = gs.customStories.filter(c => c.id !== storyId);
+  delete gs.stories[storyId];
+  ['backlog','iter1','iter2'].forEach(loc => {
+    const idx = gs.order[loc].indexOf(storyId);
+    if (idx >= 0) gs.order[loc].splice(idx, 1);
+  });
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
 }
 
 function renderObjectivesView(groupId) {
@@ -1050,11 +1573,13 @@ function renderObjectivesView(groupId) {
   const committed = objs.filter(o => !o.uncommitted);
   const uncommitted = objs.filter(o => o.uncommitted);
 
-  const tableRow = o => `
+  const tableRow = (o, isUncommitted) => `
     <tr>
       <td><input type="text" class="obj-text" value="${escAttr(o.text)}"
         onchange="updateObj('${groupId}','${o.id}','text',this.value)"
-        placeholder="State the business outcome the team commits to deliver..."></td>
+        placeholder="${isUncommitted
+          ? 'State the business outcome the team plans but is uncommitted to deliver...'
+          : 'State the business outcome the team commits to deliver...'}"></td>
       <td class="bv center">
         <input type="number" min="1" max="10" value="${o.bv}"
           onchange="updateObj('${groupId}','${o.id}','bv',this.value)" placeholder="1-10"></td>
@@ -1072,18 +1597,18 @@ function renderObjectivesView(groupId) {
       </div>
       <table class="pi-obj-table">
         <thead><tr><th>Objective</th><th class="center bv">Planned BV</th><th class="center bv">Actual BV</th><th class="actions"></th></tr></thead>
-        <tbody>${committed.length ? committed.map(tableRow).join('') : '<tr><td colspan="4" class="empty-hint" style="padding:18px">No committed objectives yet.</td></tr>'}</tbody>
+        <tbody>${committed.length ? committed.map(o => tableRow(o, false)).join('') : '<tr><td colspan="4" class="empty-hint" style="padding:18px">No committed objectives yet.</td></tr>'}</tbody>
       </table>
       <button class="add-obj-btn" onclick="addObj('${groupId}', false)">+ Add Committed Objective</button>
     </div>
     <div class="obj-section uncommitted">
       <div class="obj-section-title">
-        <span>Uncommitted Objectives </span>
+        <span>Uncommitted Objectives</span>
         <span style="font-size:11px;font-weight:400;color:#555">${uncommitted.length} objective(s)</span>
       </div>
       <table class="pi-obj-table">
         <thead><tr><th>Objective</th><th class="center bv">Planned BV</th><th class="center bv">Actual BV</th><th class="actions"></th></tr></thead>
-        <tbody>${uncommitted.length ? uncommitted.map(tableRow).join('') : '<tr><td colspan="4" class="empty-hint" style="padding:18px">No uncommitted objectives yet.</td></tr>'}</tbody>
+        <tbody>${uncommitted.length ? uncommitted.map(o => tableRow(o, true)).join('') : '<tr><td colspan="4" class="empty-hint" style="padding:18px">No uncommitted objectives yet.</td></tr>'}</tbody>
       </table>
       <button class="add-obj-btn" onclick="addObj('${groupId}', true)">+ Add Uncommitted Objective</button>
     </div>
@@ -1099,8 +1624,7 @@ function renderRisksView(groupId) {
   return `
     <div style="margin-bottom:14px;color:#555;font-size:13px;line-height:1.5;">
       Identify risks, dependencies or impediments the team has surfaced during planning. These will appear on the
-      <strong>ART Risk Review (ROAM)</strong> board for the program-level review where they get categorized as
-      <em>Resolved, Owned, Accepted, or Mitigated</em>.
+      <strong>ART Risk Review (ROAM)</strong> board for the program-level review.
     </div>
     <div class="risks-grid">
       ${risks.map(r => `
@@ -1118,38 +1642,43 @@ function renderRisksView(groupId) {
    ============================================================ */
 function setCapacity(groupId, iter, val) {
   state.groups[groupId][iter + 'Capacity'] = Number(val) || 0;
-  save(); renderGroup(groupId);
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
 }
 function toggleExpand(ev, el) {
   const t = ev.target;
-  if (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.classList.contains('size-badge')) return;
+  if (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.classList.contains('size-badge')) return;
   el.classList.toggle('expanded');
 }
 function addObj(groupId, uncommitted) {
   state.groups[groupId].objectives.push({ id: uid(), text: '', bv: '', abv: '', uncommitted: !!uncommitted });
-  save(); renderGroup(groupId);
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
 }
 function updateObj(groupId, objId, field, val) {
   const o = state.groups[groupId].objectives.find(x => x.id === objId);
   if (!o) return;
   o[field] = field === 'text' ? val : (val === '' ? '' : Number(val));
-  save();
+  save({ type: 'group', id: groupId });
 }
 function delObj(groupId, objId) {
   state.groups[groupId].objectives = state.groups[groupId].objectives.filter(o => o.id !== objId);
-  save(); renderGroup(groupId);
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
 }
 function addRisk(groupId) {
   state.groups[groupId].risks.push({ id: uid(), text: '', status: 'unassigned' });
-  save(); renderGroup(groupId);
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
 }
 function updateRisk(groupId, riskId, val) {
   const r = state.groups[groupId].risks.find(x => x.id === riskId);
-  if (r) { r.text = val; save(); }
+  if (r) { r.text = val; save({ type: 'group', id: groupId }); }
 }
 function delRisk(groupId, riskId) {
   state.groups[groupId].risks = state.groups[groupId].risks.filter(r => r.id !== riskId);
-  save(); renderGroup(groupId);
+  save({ type: 'group', id: groupId });
+  renderGroup(groupId);
 }
 
 /* ============================================================
@@ -1175,7 +1704,7 @@ function setSize(val) {
   state.groups[sizeContext.groupId].stories[sizeContext.storyId].size = val;
   const gid = sizeContext.groupId;
   hideSizePicker();
-  save();
+  save({ type: 'group', id: gid });
   renderGroup(gid);
 }
 function hideSizePicker() {
@@ -1199,7 +1728,7 @@ function attachBoardHandlers(groupId) {
   view.querySelectorAll('.story-card').forEach(card => {
     card.addEventListener('dragstart', e => {
       const tag = e.target.tagName;
-      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' ||
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
           (e.target.classList && e.target.classList.contains('size-badge'))) {
         e.preventDefault(); return;
       }
@@ -1268,7 +1797,7 @@ function attachBoardHandlers(groupId) {
       newOrderArr.splice(insertIdx, 0, payload.storyId);
 
       story.location = newLoc;
-      save();
+      save({ type: 'group', id: groupId });
       renderGroup(groupId);
     });
   });
@@ -1289,7 +1818,7 @@ function attachRiskDragHandlers(groupId) {
 }
 
 /* ============================================================
-   RISK REVIEW
+   RISK REVIEW (ROAM)
    ============================================================ */
 function renderRiskReview() {
   const view = document.getElementById('view-risk-review');
@@ -1342,7 +1871,8 @@ function renderRiskReview() {
 
 function addArtRisk() {
   state.artRisks.push({ id: uid(), text: '', status: 'unassigned' });
-  save(); renderRiskReview();
+  save({ type: 'art' });
+  renderRiskReview();
   setTimeout(() => {
     const view = document.getElementById('view-risk-review');
     const textareas = view.querySelectorAll('.roam-art textarea');
@@ -1350,14 +1880,23 @@ function addArtRisk() {
   }, 50);
 }
 function updateRiskRoam(source, riskId, val) {
-  const arr = source === 'ART' ? state.artRisks : state.groups[source].risks;
-  const r = arr.find(x => x.id === riskId);
-  if (r) { r.text = val; save(); }
+  if (source === 'ART') {
+    const r = state.artRisks.find(x => x.id === riskId);
+    if (r) { r.text = val; save({ type: 'art' }); }
+  } else {
+    const r = state.groups[source].risks.find(x => x.id === riskId);
+    if (r) { r.text = val; save({ type: 'group', id: source }); }
+  }
 }
 function delRiskRoam(source, riskId) {
-  if (source === 'ART') state.artRisks = state.artRisks.filter(r => r.id !== riskId);
-  else state.groups[source].risks = state.groups[source].risks.filter(r => r.id !== riskId);
-  save(); renderRiskReview();
+  if (source === 'ART') {
+    state.artRisks = state.artRisks.filter(r => r.id !== riskId);
+    save({ type: 'art' });
+  } else {
+    state.groups[source].risks = state.groups[source].risks.filter(r => r.id !== riskId);
+    save({ type: 'group', id: source });
+  }
+  renderRiskReview();
 }
 function attachRoamHandlers() {
   const view = document.getElementById('view-risk-review');
@@ -1380,9 +1919,15 @@ function attachRoamHandlers() {
       let payload;
       try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
       if (payload.kind !== 'roam') return;
-      const arr = payload.source === 'ART' ? state.artRisks : state.groups[payload.source].risks;
-      const r = arr.find(x => x.id === payload.riskId);
-      if (r) { r.status = zone.dataset.status; save(); renderRiskReview(); }
+      const newStatus = zone.dataset.status;
+      if (payload.source === 'ART') {
+        const r = state.artRisks.find(x => x.id === payload.riskId);
+        if (r) { r.status = newStatus; save({ type: 'art' }); }
+      } else {
+        const r = state.groups[payload.source].risks.find(x => x.id === payload.riskId);
+        if (r) { r.status = newStatus; save({ type: 'group', id: payload.source }); }
+      }
+      renderRiskReview();
     });
   });
 }
@@ -1390,11 +1935,19 @@ function attachRoamHandlers() {
 /* ============================================================
    INIT
    ============================================================ */
-buildNav();
-buildMenu();
 buildViewShells();
-showView('menu');
-initFirebase();
+const fbReady = initFirebase();
+if (fbReady) {
+  const params = getURLParams();
+  if (params.game) {
+    joinGame(params.game, params.admin);
+  } else {
+    showLobby();
+  }
+} else {
+  // Local mode — show lobby with banner; create/join won't work
+  showLobby();
+}
 </script>
 </body>
 </html>
