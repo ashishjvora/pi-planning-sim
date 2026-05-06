@@ -81,6 +81,12 @@
   .lobby-input-row {
     display: flex; gap: 8px; margin-bottom: 14px;
   }
+  .create-password-wrap { margin-bottom: 12px; }
+  .create-password-input {
+    width: 100%; border: 1.5px solid #ccd5dd; padding: 10px 12px;
+    border-radius: 6px; font-size: 14px; font-family: inherit;
+  }
+  .create-password-input:focus { outline: none; border-color: #229954; box-shadow: 0 0 0 2px rgba(34,153,84,0.15); }
   .join-code-input {
     flex: 1; border: 2px solid #ccd5dd; padding: 10px 12px;
     border-radius: 6px; font-size: 22px; font-weight: 700;
@@ -352,6 +358,11 @@
     <div class="lobby-card create">
       <h2>+ Create New Game</h2>
       <div class="lobby-sub">Generates a 4-letter code that you'll share with your team. You become the game admin and can end the game anytime.</div>
+      <div class="create-password-wrap" id="createPasswordWrap" style="display:none;">
+        <input type="password" id="createPassword" class="create-password-input"
+          placeholder="Trainer password"
+          onkeydown="if(event.key==='Enter')createGameClicked()">
+      </div>
       <button class="btn-large create" id="createGameBtn" onclick="createGameClicked()">Create Game</button>
     </div>
     <div class="lobby-card">
@@ -428,14 +439,21 @@
    FIREBASE CONFIG  ← PASTE YOUR CONFIG HERE
    ============================================================ */
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyA8iLB6DOMZET9RqPm2_hhr1rdiiXZ1GlA",
-  authDomain:        "pi-planning-sim.firebaseapp.com",
-  projectId:         "pi-planning-sim",
-  storageBucket:     "pi-planning-sim.firebasestorage.app",
-  messagingSenderId: "231826286543",
-  appId:             "1:231826286543:web:63275c213121efe62e54ba"
+  apiKey:            "PASTE_YOUR_API_KEY_HERE",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID_HERE",
+  appId:             "PASTE_YOUR_APP_ID_HERE"
 };
 const FIREBASE_CONFIGURED = FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
+
+/* ============================================================
+   TRAINER PASSWORD (optional)  ← change this to gate "Create Game"
+   Leave empty ("") to disable the password gate.
+   Set to any string (e.g., "training-2026") to require it.
+   ============================================================ */
+const CREATE_PASSWORD = "voraa";
 
 /* ============================================================
    FEATURE LIBRARY  (F1..F10)
@@ -793,6 +811,11 @@ function showLobby() {
   showOnlyView('view-lobby');
   document.getElementById('navLinks').innerHTML = '';
   setTopbarBadge(null);
+  // Show the password gate only if CREATE_PASSWORD is configured
+  const wrap = document.getElementById('createPasswordWrap');
+  if (wrap) wrap.style.display = CREATE_PASSWORD ? '' : 'none';
+  const inp = document.getElementById('createPassword');
+  if (inp) inp.value = '';
 }
 function showOnlyView(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
@@ -817,6 +840,16 @@ async function createGameClicked() {
   if (!FIREBASE_CONFIGURED) {
     showToast('Firebase is not configured — multi-team play is unavailable.');
     return;
+  }
+  // Trainer password gate (only if CREATE_PASSWORD is set)
+  if (CREATE_PASSWORD) {
+    const inp = document.getElementById('createPassword');
+    const entered = (inp?.value || '').trim();
+    if (entered !== CREATE_PASSWORD) {
+      showToast('Wrong password.');
+      if (inp) { inp.value = ''; inp.focus(); }
+      return;
+    }
   }
   const btn = document.getElementById('createGameBtn');
   btn.disabled = true;
@@ -968,9 +1001,23 @@ async function joinGame(code, urlAdminSecret) {
 }
 
 function showExpired(code) {
-  document.getElementById('expiredCode').textContent = code;
+  const wasAdmin = currentGame && currentGame.isAdmin;
   document.getElementById('navLinks').innerHTML = '';
   setTopbarBadge(null);
+
+  const card = document.querySelector('#view-expired .expired-card');
+  if (wasAdmin) {
+    card.innerHTML = `
+      <h2>Game ended</h2>
+      <p>You ended the game. Start a new one from the lobby?</p>
+      <div class="expired-code">${escHTML(code)}</div>
+      <button class="btn-large create" onclick="goToLobby()">Back to Lobby</button>`;
+  } else {
+    card.innerHTML = `
+      <h2>This game has ended</h2>
+      <p>This session is no longer active. Please wait for a new code from your trainer.</p>
+      <div class="expired-code">${escHTML(code)}</div>`;
+  }
   showOnlyView('view-expired');
 }
 
@@ -1024,9 +1071,9 @@ async function endGameNow() {
     await gameDocRef.delete();
     forgetAdmin(currentGame.code);
     clearLocalCache(currentGame.code);
-    const ended = currentGame.code;
-    currentGame = null; state = null;
-    showExpired(ended);
+    // Show expired screen first (still has currentGame.isAdmin so admin sees Back to Lobby button)
+    showExpired(currentGame.code);
+    // currentGame stays until admin clicks Back to Lobby (which calls goToLobby and nulls everything)
   } catch (e) {
     showToast('Failed to delete: ' + (e.message || 'unknown'));
   }
