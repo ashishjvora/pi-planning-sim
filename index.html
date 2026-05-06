@@ -78,12 +78,6 @@
   .lobby-card h2 { color: #1f5fa8; font-size: 20px; margin-bottom: 8px; }
   .lobby-card.create h2 { color: #229954; }
   .lobby-card .lobby-sub { color: #5a6a7a; font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
-  .ttl-options {
-    background: #f4f7fb; border-radius: 6px; padding: 12px 14px; margin-bottom: 18px;
-  }
-  .ttl-options-label { font-size: 12px; font-weight: 600; color: #1a2a3a; margin-bottom: 8px; display: block; }
-  .ttl-options label.opt { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; font-size: 13px; color: #2c3e50; }
-  .ttl-options input[type="radio"] { cursor: pointer; }
   .lobby-input-row {
     display: flex; gap: 8px; margin-bottom: 14px;
   }
@@ -357,14 +351,7 @@
   <div class="lobby-grid">
     <div class="lobby-card create">
       <h2>+ Create New Game</h2>
-      <div class="lobby-sub">Generates a 4-letter code that you'll share with your team. You become the game admin.</div>
-      <div class="ttl-options">
-        <span class="ttl-options-label">Auto-expire after last activity:</span>
-        <label class="opt"><input type="radio" name="ttl" value="1"> 1 day</label>
-        <label class="opt"><input type="radio" name="ttl" value="3" checked> 3 days (recommended)</label>
-        <label class="opt"><input type="radio" name="ttl" value="7"> 7 days</label>
-        <label class="opt"><input type="radio" name="ttl" value="0"> Never (manual delete only)</label>
-      </div>
+      <div class="lobby-sub">Generates a 4-letter code that you'll share with your team. You become the game admin and can end the game anytime.</div>
       <button class="btn-large create" id="createGameBtn" onclick="createGameClicked()">Create Game</button>
     </div>
     <div class="lobby-card">
@@ -651,13 +638,12 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O,0,I,1,L
 const CODE_LEN = 4;
 
 let state;          // current game's data (groups, artRisks, enabledGroupCount, activeSubTab)
-let currentGame = null;  // { code, ttlDays, isAdmin, adminSecret, expiresAtMs }
+let currentGame = null;  // { code, isAdmin, adminSecret }
 let db = null;
 let gameDocRef = null;
 let unsubscribeListener = null;
 let isActivelyEditing = false;
 let pendingRemoteUpdate = false;
-let countdownTimer = null;
 
 function defaultGroupState(g) {
   const stories = {};
@@ -807,7 +793,6 @@ function showLobby() {
   showOnlyView('view-lobby');
   document.getElementById('navLinks').innerHTML = '';
   setTopbarBadge(null);
-  stopCountdown();
 }
 function showOnlyView(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
@@ -833,9 +818,6 @@ async function createGameClicked() {
     showToast('Firebase is not configured — multi-team play is unavailable.');
     return;
   }
-  const ttlValue = (document.querySelector('input[name="ttl"]:checked') || {}).value || '3';
-  const ttlDays = Number(ttlValue);  // 0 means never
-
   const btn = document.getElementById('createGameBtn');
   btn.disabled = true;
   btn.textContent = 'Creating…';
@@ -856,16 +838,12 @@ async function createGameClicked() {
     const payload = {
       code,
       adminSecret,
-      ttlDays: ttlDays > 0 ? ttlDays : 0,
       createdAt: Date.now(),
       groups: fresh.groups,
       artRisks: fresh.artRisks,
       enabledGroupCount: fresh.enabledGroupCount,
       updatedAt: Date.now()
     };
-    if (ttlDays > 0) {
-      payload.expiresAt = firebase.firestore.Timestamp.fromMillis(Date.now() + ttlDays * 86400000);
-    }
 
     await db.collection('games').doc(code).set(payload);
     rememberAdmin(code, adminSecret);
@@ -925,10 +903,8 @@ async function joinGame(code, urlAdminSecret) {
 
   currentGame = {
     code,
-    ttlDays: data.ttlDays || 0,
     isAdmin,
-    adminSecret,
-    expiresAtMs: (data.expiresAt && data.expiresAt.toMillis) ? data.expiresAt.toMillis() : null
+    adminSecret
   };
 
   // Initialize state
@@ -970,19 +946,11 @@ async function joinGame(code, urlAdminSecret) {
       state.enabledGroupCount = remote.enabledGroupCount;
       changed = true;
     }
-    if (remote.expiresAt && remote.expiresAt.toMillis) {
-      currentGame.expiresAtMs = remote.expiresAt.toMillis();
-    } else if (!remote.expiresAt) {
-      currentGame.expiresAtMs = null;
-    }
     if (changed) {
       ensureStateStructure();
       saveLocalCache();
       if (isActivelyEditing) { pendingRemoteUpdate = true; }
       else { rerenderActiveView(); }
-    } else {
-      // Even if no data change, refresh the expiry display
-      renderGameInfoBar();
     }
   }, (err) => {
     console.error('Firestore listener error:', err);
@@ -996,7 +964,6 @@ async function joinGame(code, urlAdminSecret) {
   applyAdminVisibility();
   renderMenuGrid();
   renderGameInfoBar();
-  startCountdown();
   showOnlyView('view-menu');
 }
 
@@ -1004,7 +971,6 @@ function showExpired(code) {
   document.getElementById('expiredCode').textContent = code;
   document.getElementById('navLinks').innerHTML = '';
   setTopbarBadge(null);
-  stopCountdown();
   showOnlyView('view-expired');
 }
 
@@ -1018,32 +984,13 @@ function applyAdminVisibility() {
   document.getElementById('resetArea').classList.toggle('hidden', !isAdmin);
 }
 
-function formatRemainingTime(ms) {
-  if (ms <= 0) return 'expired';
-  const days = Math.floor(ms / 86400000);
-  const hours = Math.floor((ms % 86400000) / 3600000);
-  const mins  = Math.floor((ms % 3600000) / 60000);
-  if (days >= 1) return days + 'd ' + hours + 'h';
-  if (hours >= 1) return hours + 'h ' + mins + 'm';
-  return mins + 'm';
-}
-
 function renderGameInfoBar() {
   if (!currentGame || !currentGame.isAdmin) return;
   const bar = document.getElementById('gameInfoBar');
-  const expiryHtml = currentGame.expiresAtMs
-    ? `<span class="game-info-value thin">${formatRemainingTime(currentGame.expiresAtMs - Date.now())}</span>
-       <span style="font-size:10px;opacity:0.7">(${new Date(currentGame.expiresAtMs).toLocaleString()})</span>`
-    : `<span class="game-info-value thin">Never</span>
-       <span style="font-size:10px;opacity:0.7">(manual delete only)</span>`;
   bar.innerHTML = `
     <div class="game-info-block">
       <span class="game-info-label">Game Code</span>
       <span class="game-info-value">${currentGame.code}</span>
-    </div>
-    <div class="game-info-block">
-      <span class="game-info-label">Expires</span>
-      ${expiryHtml}
     </div>
     <div class="game-info-actions">
       <button class="btn small" onclick="copyParticipantUrl()">📋 Copy Share URL</button>
@@ -1051,14 +998,6 @@ function renderGameInfoBar() {
       <button class="btn small danger" onclick="endGameNow()">⏻ End Game Now</button>
     </div>`;
 }
-
-function startCountdown() {
-  stopCountdown();
-  countdownTimer = setInterval(() => {
-    if (currentGame && currentGame.isAdmin) renderGameInfoBar();
-  }, 60000); // 1 min refresh
-}
-function stopCountdown() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; } }
 
 async function copyToClipboard(text, successMsg) {
   try {
@@ -1112,7 +1051,7 @@ function clearLocalCache(code) {
 }
 
 /* ============================================================
-   SAVE (field-scoped, sliding TTL)
+   SAVE (field-scoped, no TTL — manual cleanup only)
    ============================================================ */
 function save(scope) {
   saveLocalCache();
@@ -1120,21 +1059,16 @@ function save(scope) {
   if (!scope) scope = { type: 'full' };
 
   const update = { updatedAt: Date.now() };
-  if (currentGame.ttlDays > 0) {
-    update.expiresAt = firebase.firestore.Timestamp.fromMillis(Date.now() + currentGame.ttlDays * 86400000);
-  }
 
   if (scope.type === 'full') {
     const payload = {
       code: currentGame.code,
       adminSecret: currentGame.adminSecret, // preserve
-      ttlDays: currentGame.ttlDays,
       groups: state.groups,
       artRisks: state.artRisks,
       enabledGroupCount: state.enabledGroupCount,
       updatedAt: Date.now()
     };
-    if (update.expiresAt) payload.expiresAt = update.expiresAt;
     gameDocRef.set(payload, { merge: true }).catch(err => { console.error(err); setConnectionStatus('error'); });
     return;
   }
